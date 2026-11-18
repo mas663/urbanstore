@@ -34,6 +34,11 @@ function Header() {
   }, [location.pathname, location.search]);
 
   const isActive = (to) => location.pathname + location.search === to;
+  // Di halaman login/daftar, pertahankan tujuan redirect yang sudah ada (hindari next bersarang)
+  const onAuthPage = ['/login', '/daftar'].includes(location.pathname);
+  const loginHref = onAuthPage
+    ? `/login${location.search}`
+    : `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur">
@@ -60,7 +65,7 @@ function Header() {
                 <UserIcon /><span className="hidden max-w-[110px] truncate sm:inline">{user.name.split(' ')[0]}</span>
               </button>
             ) : (
-              <Link to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} className="btn-ghost">
+              <Link to={loginHref} className="btn-ghost">
                 <UserIcon /><span className="hidden sm:inline">Masuk</span>
               </Link>
             )}

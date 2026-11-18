@@ -229,6 +229,8 @@ Mengubah landing page menjadi aplikasi web fullstack.
 - **AI Product Description (admin):** tombol *Generate Description with AI* di form produk, berbasis data form, hasil teks bersih tanpa Markdown dan tetap bisa diedit.
 - **AI Sales Analysis (admin):** dokumen analisis penjualan & strategi (promo, bundling, restock) dari agregat data order.
 - **Provider:** Gemini API (Google AI Studio) via backend; opsional AI router (9Router) yang OpenAI-compatible. API key di `.env`.
+- **Dua API key terpisah:** `urbanstore-customer` (`GEMINI_API_KEY_CUSTOMER`) untuk AI Shopping Assistant, `urbanstore-admin` (`GEMINI_API_KEY_ADMIN`) untuk deskripsi & analisis — kuota tidak saling mengganggu.
+- **Model cadangan:** jika model utama overload / rate limit (503/429), request otomatis dialihkan ke `GEMINI_FALLBACK_MODEL`.
 - **Cost optimization:** kirim payload katalog ringkas & agregat (bukan data mentah), batasi riwayat chat.
 
 ### Open Questions

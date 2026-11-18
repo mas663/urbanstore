@@ -10,6 +10,9 @@ import { cartRoutes } from './routes/cart.js';
 import { orderRoutes } from './routes/orders.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
+import { aiRoutes } from './routes/ai.js';
+import { AiError } from './ai/provider.js';
+import { HttpError } from './lib/http.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -36,6 +39,7 @@ export function createApp(db) {
   api.use('/cart', cartRoutes(db));
   api.use('/', orderRoutes(db));
   api.use('/auth', authRoutes(db));
+  api.use('/', aiRoutes(db)); // Sesi 5: /chat, /admin/describe, /admin/analyze
   api.use('/admin', adminRoutes(db));
   api.use((_req, _res, next) => next(notFound('Endpoint tidak ditemukan')));
   app.use('/api', api);
@@ -47,6 +51,8 @@ export function createApp(db) {
     app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
   }
 
+  // AiError (mis. AI belum dikonfigurasi / timeout) → diteruskan sebagai HttpError dengan pesan ramah
+  app.use((err, _req, _res, next) => next(err instanceof AiError ? new HttpError(err.status, err.message) : err));
   app.use(errorMiddleware);
   return app;
 }

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PRD UrbanStore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+<style>
+  :root { --ink:#0a0a0a; --paper:#fff; --soft:#f4f4f1; --line:#e4e4e0; --mute:#6b6b66; --lemon:#d9f24a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.65 Inter, system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 56px 16px 96px; }
+  h1 { font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.05; letter-spacing: -.03em; margin: 0 0 24px; }
+  h1::after { content:''; display:inline-block; width:.3em; height:.3em; background:var(--lemon); margin-left:.15em; }
+  h2 { font-size: 1.5rem; letter-spacing: -.02em; margin: 56px 0 16px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-size: 1.05rem; margin: 32px 0 8px; }
+  blockquote { margin: 16px 0; padding: 12px 16px; background: var(--soft); border-left: 4px solid var(--lemon); }
+  blockquote p { margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; display: block; overflow-x: auto; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { border-bottom: 2px solid var(--ink); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  code { background: var(--soft); padding: 1px 6px; font-size: .9em; }
+  pre { background: var(--ink); color: #f4f4f1; padding: 20px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+  pre code { background: none; padding: 0; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+  li { margin: 4px 0; }
+  a { color: inherit; }
+</style>
+</head>
+<body><main>
+<h1>UrbanStore — Product Requirement Document (PRD)</h1>
+<blockquote>
+<p>Versi 1.2 · Status: Siap dieksekusi AI Agent · Studi kasus Vibe Coding Bootcamp Batch 4 (CODEPOLITAN)</p>
+<p>Dokumen ini adalah <strong>source of truth</strong>. Setiap prompt development wajib mengacu ke sini. Kalau ada hal yang belum diputuskan, tandai sebagai <em>Open Question</em> — jangan ditebak.</p>
+</blockquote>
+<hr>
+<h2>1. Product Overview</h2>
+<p>UrbanStore adalah online store fashion pria &amp; wanita untuk Gen Z dengan <strong>kurasi terarah</strong>, <strong>informasi ukuran transparan</strong>, dan <strong>tampilan modern minimalis</strong> (Swiss International Style × Japanese Minimalism, dominasi hitam-putih dengan aksen kuning kehijauan lemon).</p>
+<p><strong>Problem statement</strong></p>
+<blockquote>
+<p>Gen Z pembeli online (mahasiswa &amp; young professional) mengalami <strong>kesulitan menemukan fashion yang sesuai selera &amp; budget</strong> ketika <strong>scrolling di HP pada waktu senggang yang singkat</strong>, sehingga membutuhkan <strong>katalog terkurasi dengan panduan ukuran visual yang terpercaya dan checkout yang cepat</strong>.</p>
+</blockquote>
+<p><strong>Value proposition</strong></p>
+<blockquote>
+<p>&quot;UrbanStore membantu Gen Z tampil stylish setiap hari tanpa repot &amp; tanpa ragu ukuran.&quot;</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>For (target)</strong></td>
+<td>Gen Z &amp; young professional 18–30 tahun yang aktif belanja lewat smartphone</td>
+</tr>
+<tr>
+<td><strong>Who (need)</strong></td>
+<td>Butuh outfit kurasi, bosan mencari di antara jutaan item non-kurasi marketplace</td>
+</tr>
+<tr>
+<td><strong>Our product</strong></td>
+<td>UrbanStore — pakaian trendy siap pakai dengan panduan ukuran terpercaya</td>
+</tr>
+<tr>
+<td><strong>Unlike (diff)</strong></td>
+<td>Tanpa iklan banner &amp; distraksi, checkout 3 langkah, foto produk sebagai fokus</td>
+</tr>
+</tbody></table>
+<p><strong>Persona utama — Rian &amp; Maya (19–25 th, mahasiswa &amp; first-jobber)</strong></p>
+<ul>
+<li>Perilaku: cari inspirasi outfit di medsos, belanja lewat smartphone saat waktu luang.</li>
+<li>Goals: tampil stylish untuk kuliah/nongkrong tanpa menguras kantong.</li>
+<li>Pain points: takut salah ukuran, bahan tipis, malas isi form checkout panjang.</li>
+<li>Device: 100% smartphone shopper, pembayaran via transfer / e-wallet.</li>
+</ul>
+<h2>2. Product Goals</h2>
+<ul>
+<li><strong>Goal 1 — Discoverability:</strong> Memudahkan user menemukan outfit stylish tanpa tersesat katalog (produk relevan ditemukan ≤ 30 detik).</li>
+<li><strong>Goal 2 — Shopping Confidence:</strong> Menyediakan panduan ukuran visual yang jelas &amp; terpercaya.</li>
+<li><strong>Goal 3 — Fast Conversion:</strong> Menyelesaikan checkout mobile dengan cepat tanpa hambatan (3 langkah, tanpa wajib daftar akun).</li>
+</ul>
+<h2>3. Success Metrics (KPI)</h2>
+<table>
+<thead>
+<tr>
+<th>Metrik</th>
+<th>Baseline</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Product Click Rate (katalog → detail)</td>
+<td>12% industri</td>
+<td>&gt; 25%</td>
+</tr>
+<tr>
+<td>Add to Cart Rate (detail → cart)</td>
+<td>4.5% e-commerce</td>
+<td>&gt; 15%</td>
+</tr>
+<tr>
+<td>Checkout Completion Rate (cart → sukses)</td>
+<td>40% industri</td>
+<td>&gt; 65%</td>
+</tr>
+<tr>
+<td>Cart Abandonment Rate</td>
+<td>maks. 60%</td>
+<td>&lt; 30%</td>
+</tr>
+<tr>
+<td>Time to First Purchase</td>
+<td>8 menit</td>
+<td>&lt; 3 menit</td>
+</tr>
+</tbody></table>
+<p><em>Metrik dievaluasi berkala pasca-peluncuran MVP.</em></p>
+<h2>4. User Needs (Kebutuhan Pengguna)</h2>
+<ol>
+<li>Pengunjung dapat melihat daftar katalog produk fashion terkini.</li>
+<li>Pengunjung dapat mencari dan memfilter produk per kategori (Pria/Wanita).</li>
+<li>Pengunjung dapat melihat panduan ukuran visual di halaman detail.</li>
+<li>Pengguna dapat mengelola item dan melihat subtotal di keranjang.</li>
+<li>Pengguna dapat menyelesaikan pembayaran via checkout 3 langkah ringkas.</li>
+</ol>
+<h2>5. User Stories</h2>
+<p>Format: <strong>As a</strong> [persona] <strong>I want</strong> [aksi] <strong>so that</strong> [benefit].</p>
+<ul>
+<li><strong>US-01</strong> As a customer, I want to filter products by category and gender, so that I can find trendy outfits that fit my style quickly.</li>
+<li><strong>US-02</strong> As a customer, I want to see clear size measurements, so that I can buy without worrying the size won&#39;t fit.</li>
+<li><strong>US-03</strong> As a customer, I want to change quantity or remove items in my cart, so that I always know my exact subtotal.</li>
+<li><strong>US-04</strong> As a customer, I want to checkout in 3 short steps without creating an account, so that I can finish buying in under 3 minutes.</li>
+<li><strong>US-05</strong> As a customer, I want to see an invoice with an order number and bank details, so that I know how to pay.</li>
+<li><strong>US-06</strong> As a store admin, I want to add products with sizes and stock, so that the catalog is always up to date. <em>(v1.1)</em></li>
+<li><strong>US-07</strong> As a store admin, I want to see incoming orders and confirm payments, so that I can process orders confidently. <em>(v1.1)</em></li>
+<li><strong>US-08</strong> As a logged-in customer, I want to ask an AI assistant about stock and my size based on height/weight, so that I can decide faster. <em>(v1.2)</em></li>
+<li><strong>US-09</strong> As a store admin, I want AI to draft product descriptions and analyze sales, so that I save time on copywriting and planning. <em>(v1.2)</em></li>
+</ul>
+<h2>6. Scope</h2>
+<h3>In Scope — MVP v1</h3>
+<ul>
+<li>Homepage &amp; Banner (landing page)</li>
+<li>Katalog Kurasi (grid, search, filter Pria/Wanita &amp; kategori, sorting harga)</li>
+<li>Detail Produk &amp; Size Guide</li>
+<li>Shopping Cart</li>
+<li>3-Step Checkout</li>
+<li>Order Confirmation (invoice)</li>
+</ul>
+<h3>Out of Scope — ditunda ke v2+</h3>
+<ul>
+<li>AI Virtual Stylist &amp; Outfit Matcher penuh (catatan: asisten belanja berbasis katalog masuk v1.2, lihat Changelog)</li>
+<li>Multi-seller Marketplace</li>
+<li>Virtual 3D Fitting Room (AR)</li>
+<li>Integrasi Paylater &amp; Cicilan / KYC</li>
+<li>Payment gateway otomatis (Midtrans/Xendit) &amp; API kurir real-time</li>
+<li>Wishlist, ulasan &amp; rating, loyalty tier, live shopping</li>
+</ul>
+<h2>7. Functional Requirements</h2>
+<h3>FR-01 — Homepage &amp; Banner</h3>
+<ul>
+<li>Menampilkan hero (headline, subheadline, CTA ke katalog), value proposition, koleksi unggulan, benefit, brand story, FAQ, final CTA, dan footer.</li>
+</ul>
+<h3>FR-02 — Product Catalog</h3>
+<ul>
+<li>Sistem harus menampilkan daftar produk dalam format <strong>grid responsive</strong>.</li>
+<li>Setiap kartu produk menampilkan <strong>foto aesthetic, nama, harga, dan kategori</strong>.</li>
+<li>Pengguna dapat memfilter berdasarkan kategori <strong>Pria</strong> dan <strong>Wanita</strong>, serta jenis produk.</li>
+<li>Pengguna dapat mencari produk berdasarkan nama dan mengurutkan berdasarkan harga.</li>
+<li>Produk tanpa stok harus menampilkan badge status <strong>&quot;Habis&quot;</strong> secara jelas.</li>
+<li>Produk diskon menampilkan harga coret &amp; badge diskon.</li>
+</ul>
+<h3>FR-03 — Product Detail &amp; Size Guide</h3>
+<ul>
+<li>Menampilkan foto, nama, harga, kategori, bahan, warna, deskripsi, stok.</li>
+<li>Size picker wajib (S/M/L/XL sesuai varian produk) sebelum Add to Cart.</li>
+<li>Panduan ukuran visual (tabel ukuran badan/pakaian + estimasi tinggi &amp; berat badan).</li>
+<li>Pengguna dapat menambah produk ke keranjang dari halaman detail.</li>
+</ul>
+<h3>FR-04 — Shopping Cart</h3>
+<ul>
+<li>Pengguna dapat mengubah jumlah item (qty) atau menghapus item langsung.</li>
+<li>Sistem harus mengupdate subtotal dan total biaya secara instan (realtime).</li>
+<li>Item yang sama dengan ukuran berbeda disimpan sebagai baris berbeda.</li>
+</ul>
+<h3>FR-05 — 3-Step Checkout</h3>
+<ol>
+<li><strong>Data pengiriman</strong> — nama penerima, nomor WhatsApp, email, alamat lengkap, kota, kode pos.</li>
+<li><strong>Pengiriman &amp; pembayaran</strong> — Regular (Rp15.000) / Express Next Day (Rp30.000); pembayaran transfer bank manual.</li>
+<li><strong>Review</strong> — ringkasan item, ongkir, total → tombol <strong>Place Order</strong>.</li>
+</ol>
+<h3>FR-06 — Order Confirmation</h3>
+<ul>
+<li>Generate nomor order unik (format <code>URB-YYYY-NNN</code>, contoh <code>URB-2026-001</code>).</li>
+<li>Halaman invoice berisi status, item, total, instruksi transfer, dan tombol <strong>&quot;Saya Sudah Transfer&quot;</strong>.</li>
+<li>Customer dapat membuka kembali invoice via nomor order + nomor WhatsApp.</li>
+</ul>
+<h2>8. User Flow</h2>
+<p><strong>Discover → Explore → Evaluate → Purchase → Complete</strong></p>
+<ol>
+<li>Product Detail (pilih size)</li>
+<li>Klik &quot;Add to Cart&quot;</li>
+<li>Review Shopping Cart</li>
+<li>Isi Checkout Form (alamat)</li>
+<li>Review Order Summary</li>
+<li>Klik &quot;Place Order&quot;</li>
+<li>Invoice &amp; instruksi pembayaran</li>
+</ol>
+<h2>9. Business Rules</h2>
+<ul>
+<li><strong>Kuantitas minimum:</strong> jumlah produk yang ditambahkan ke cart minimal 1 item.</li>
+<li><strong>Validasi stok:</strong> pengguna dilarang memesan melebihi stok tersedia (dicek ulang di server saat checkout).</li>
+<li><strong>Kalkulasi total:</strong> Total = Σ(Harga × Qty) + Ongkir flat. Harga selalu diambil dari database, bukan dari browser.</li>
+<li><strong>Validitas pesanan:</strong> order hanya berhasil jika field alamat &amp; nomor HP valid.</li>
+<li><strong>Snapshot harga:</strong> harga &amp; nama produk disimpan saat dibeli, sehingga invoice tidak berubah jika admin mengubah harga.</li>
+<li><strong>Stok:</strong> stok berkurang saat order dibuat dan dikembalikan jika order dibatalkan.</li>
+<li><strong>Status pesanan:</strong> Menunggu Pembayaran → Menunggu Verifikasi → Lunas (diproses) → Dikirim → Selesai; atau Dibatalkan.</li>
+</ul>
+<h2>10. Acceptance Criteria (Gherkin)</h2>
+<pre><code class="language-gherkin">Scenario: Add to cart
+  Given pengguna membuka halaman detail produk dengan stok tersedia
+  When pengguna memilih ukuran &quot;M&quot; dan menekan tombol &quot;Add to Cart&quot;
+  Then item masuk ke keranjang belanja dan indikator badge cart bertambah
+  And subtotal keranjang diperbarui secara akurat realtime
+
+Scenario: Add to cart tanpa ukuran
+  Given pengguna di halaman detail produk
+  When pengguna menekan &quot;Add to Cart&quot; tanpa memilih ukuran
+  Then sistem menampilkan pesan &quot;Pilih ukuran dulu ya&quot;
+  And item tidak masuk keranjang
+
+Scenario: Produk habis
+  Given stok produk adalah 0
+  When pengguna melihat katalog atau detail produk
+  Then badge &quot;Habis&quot; tampil dan tombol Add to Cart nonaktif
+
+Scenario: Filter kategori
+  Given pengguna di halaman katalog
+  When pengguna memilih filter &quot;Wanita&quot;
+  Then hanya produk wanita dan unisex yang tampil
+
+Scenario: Checkout sukses
+  Given keranjang berisi minimal 1 item dengan stok cukup
+  When pengguna mengisi data pengiriman valid, memilih pengiriman, lalu menekan &quot;Place Order&quot;
+  Then sistem membuat order dengan nomor unik &quot;URB-YYYY-NNN&quot;
+  And keranjang dikosongkan
+  And pengguna diarahkan ke halaman invoice berstatus &quot;Menunggu Pembayaran&quot;
+
+Scenario: Validasi form checkout
+  Given pengguna di langkah 1 checkout
+  When nomor WhatsApp tidak valid
+  Then muncul pesan error yang jelas dan solutif, dan pengguna tidak bisa lanjut
+
+Scenario: Admin konfirmasi pembayaran (v1.1)
+  Given order berstatus &quot;Menunggu Verifikasi&quot;
+  When admin menekan &quot;Konfirmasi Lunas&quot;
+  Then status berubah menjadi &quot;Lunas&quot; dan terlihat di halaman invoice customer
+</code></pre>
+<h2>11. Non-Functional Requirements</h2>
+<ul>
+<li><strong>Responsive:</strong> sempurna di mobile, tablet &amp; desktop (mobile-first).</li>
+<li><strong>Accessibility:</strong> kontras teks nyaman &amp; ukuran font terbaca; elemen interaktif bisa diakses keyboard.</li>
+<li><strong>Fast Loading:</strong> load time katalog &lt; 2 detik.</li>
+<li><strong>Clear Validation:</strong> pesan error form jelas &amp; solutif.</li>
+<li><strong>Security:</strong> password di-hash, sesi via cookie httpOnly, API key hanya di backend.</li>
+</ul>
+<h2>12. Technical Constraints</h2>
+<ul>
+<li><strong>Stack:</strong> Vite + React + Tailwind CSS (frontend), Node.js + Express (backend), SQLite (database).</li>
+<li><strong>Design system:</strong> Swiss × Japanese minimalism — font Inter, strong grid, generous whitespace, tanpa gradient/shadow berlebihan, foto produk sebagai fokus. Warna: hitam <code>#0A0A0A</code>, putih <code>#FFFFFF</code>, aksen lemon <code>#D9F24A</code>.</li>
+<li><strong>Copywriting:</strong> Bahasa Indonesia gaya Gen Z yang natural.</li>
+<li><strong>No payment assumed:</strong> jangan mengasumsikan payment gateway live tanpa API key; MVP memakai transfer bank manual.</li>
+<li><strong>Secrets:</strong> semua kredensial di environment variables (<code>.env</code>), tidak pernah di frontend.</li>
+</ul>
+<hr>
+<h2>Changelog (Change Management)</h2>
+<h3>v1.1 — Sesi 4: Build Web Application</h3>
+<p>Mengubah landing page menjadi aplikasi web fullstack.</p>
+<ul>
+<li><strong>Database (6 entitas):</strong> Products, Categories, Cart Items, Orders, Order Items, Payment Status.</li>
+<li><strong>Role &amp; akses:</strong><ul>
+<li><em>Store Admin</em> (<code>/admin</code>): tambah &amp; kelola produk, monitoring pesanan, konfirmasi pembayaran.</li>
+<li><em>Customer</em>: katalog, pilih ukuran, cart, checkout <strong>tanpa wajib registrasi</strong>, invoice via Order ID.</li>
+</ul>
+</li>
+<li><strong>Aturan input produk:</strong> nama, kategori &amp; harga wajib; harga &amp; stok ≥ 0 (harga &gt; 0); minimal 1 varian ukuran.</li>
+<li><strong>Business flow 7 tahap:</strong> Admin input produk → Customer lihat katalog → pilih ukuran &amp; cart → checkout → invoice → &quot;Saya Sudah Transfer&quot; → Admin &quot;Konfirmasi Lunas&quot;.</li>
+</ul>
+<h3>v1.2 — Sesi 5: AI Feature Integration</h3>
+<ul>
+<li><strong>AI Shopping Assistant (customer):</strong> floating chat; jawab stok, harga, warna, ukuran, bahan dari database; rekomendasi ukuran dari TB/BB + size chart; mix &amp; match dari katalog; tolak sopan pertanyaan di luar UrbanStore.<ul>
+<li>Hanya untuk customer yang login; kuota <strong>5 pesan / 12 jam</strong> dihitung di backend; tampil sisa kuota; streaming, loading, error &amp; retry.</li>
+</ul>
+</li>
+<li><strong>AI Product Description (admin):</strong> tombol <em>Generate Description with AI</em> di form produk, berbasis data form, hasil teks bersih tanpa Markdown dan tetap bisa diedit.</li>
+<li><strong>AI Sales Analysis (admin):</strong> dokumen analisis penjualan &amp; strategi (promo, bundling, restock) dari agregat data order.</li>
+<li><strong>Provider:</strong> Gemini API (Google AI Studio) via backend; opsional AI router (9Router) yang OpenAI-compatible. API key di <code>.env</code>.</li>
+<li><strong>Dua API key terpisah:</strong> <code>urbanstore-customer</code> (<code>GEMINI_API_KEY_CUSTOMER</code>) untuk AI Shopping Assistant, <code>urbanstore-admin</code> (<code>GEMINI_API_KEY_ADMIN</code>) untuk deskripsi &amp; analisis — kuota tidak saling mengganggu.</li>
+<li><strong>Model cadangan:</strong> jika model utama overload / rate limit (503/429), request otomatis dialihkan ke <code>GEMINI_FALLBACK_MODEL</code>.</li>
+<li><strong>Cost optimization:</strong> kirim payload katalog ringkas &amp; agregat (bukan data mentah), batasi riwayat chat.</li>
+</ul>
+<h3>Open Questions</h3>
+<ul>
+<li>Integrasi QRIS / payment gateway otomatis (ditunda v2).</li>
+<li>Ongkir dinamis berdasarkan kota (saat ini flat).</li>
+</ul>
+
+</main></body>
+</html>

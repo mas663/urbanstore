@@ -24,8 +24,8 @@ export function cleanAiText(text) {
   return String(text || '')
     .replace(/<[^>]+>/g, '')
     .replace(/\*\*|__|`+/g, '')
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s*[*•·]\s+/gm, '- ')
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+    .replace(/^[ \t]*[*•·][ \t]+/gm, '- ')
     .replace(/(^|\s)\*(\S[^*\n]*\S|\S)\*(?=\s|[.,!?]|$)/g, '$1$2')
     .replace(/\n{3,}/g, '\n\n');
 }
