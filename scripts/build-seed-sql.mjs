@@ -64,15 +64,15 @@ ${variants.map((v) => `  (${q(v.color)}, ${q(v.size)}, ${v.stock})`).join(',\n')
 }
 lines.push('commit;', '');
 
-// Hanya isi produk jika katalog masih kosong (supaya seed aman dijalankan ulang).
-// Flag dihitung SEKALI di awal — kalau dicek per produk, produk ke-2 dst. akan terlewat.
-const sql = lines.join('\n').replace(
-  '-- Produk + varian',
-  '-- Produk + varian (dilewati jika katalog sudah berisi)\n' +
-    'create temp table _seed_flag on commit drop as select not exists (select 1 from public.products) as go;',
+// Setiap produk hanya di-insert jika produk dengan nama yang sama belum ada → aman dijalankan ulang.
+// (Sengaja tanpa temp table: SQL Editor Supabase memperingatkan setiap CREATE TABLE tanpa RLS.)
+const sql = lines.join('\n').replace('-- Produk + varian', '-- Produk + varian (produk yang sudah ada dilewati)');
+const guarded = sql.replace(
+  /select ('(?:[^']|'')+'), null, id,([\s\S]*?)from public\.categories where slug = ('[^']+')\n  on conflict/g,
+  (_, name, mid, slug) =>
+    `select ${name}, null, id,${mid}from public.categories where slug = ${slug}\n` +
+    `    and not exists (select 1 from public.products where name = ${name})\n  on conflict`,
 );
-const guarded = sql.replace(/(from public\.categories where slug = '[^']+')\n  on conflict/g,
-  '$1 and (select go from _seed_flag)\n  on conflict');
 
 fs.mkdirSync(path.join(root, 'supabase'), { recursive: true });
 fs.writeFileSync(path.join(root, 'supabase/seed.sql'), guarded);

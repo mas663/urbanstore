@@ -26,14 +26,14 @@ insert into public.categories (name, slug, size_type) values
   ('Aksesoris', 'aksesoris', 'onesize')
 on conflict (slug) do update set name = excluded.name, size_type = excluded.size_type;
 
--- Produk + varian (dilewati jika katalog sudah berisi)
-create temp table _seed_flag on commit drop as select not exists (select 1 from public.products) as go;
+-- Produk + varian (produk yang sudah ada dilewati)
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Urban Oversized Heavy Tee', null, id, 'unisex', 189000, null, 'Cotton combed 24s heavyweight 220 gsm', 'Kaos oversized dengan bahan cotton combed heavyweight yang tebal tapi tetap adem. Potongan drop shoulder bikin siluet santai yang gampang dipadukan dengan celana apa pun, dari cargo sampai chino.
 
 Cocok buat kuliah, nongkrong, atau sekadar keluar cari kopi.', '/products/oversized-tee-black.svg', true
-  from public.categories where slug = 't-shirt' and (select go from _seed_flag)
+  from public.categories where slug = 't-shirt'
+    and not exists (select 1 from public.products where name = 'Urban Oversized Heavy Tee')
   on conflict do nothing
   returning id
 )
@@ -54,7 +54,8 @@ with p as (
   select 'Essential Boxy Tee', null, id, 'unisex', 149000, 179000, 'Cotton combed 30s', 'Kaos boxy fit warna putih bersih yang jadi fondasi lemari kamu. Bahan cotton combed 30s ringan dan lembut, nyaman dipakai seharian.
 
 Tinggal layer dengan kemeja atau jaket, outfit langsung jadi.', '/products/boxy-tee-white.svg', true
-  from public.categories where slug = 't-shirt' and (select go from _seed_flag)
+  from public.categories where slug = 't-shirt'
+    and not exists (select 1 from public.products where name = 'Essential Boxy Tee')
   on conflict do nothing
   returning id
 )
@@ -73,7 +74,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Mono Graphic Tee', null, id, 'pria', 169000, null, 'Cotton combed 24s', 'Kaos dengan grafis tipografi minimalis di bagian dada. Warna abu tua yang kalem, gampang masuk ke outfit monokrom.', '/products/graphic-tee-grey.svg', false
-  from public.categories where slug = 't-shirt' and (select go from _seed_flag)
+  from public.categories where slug = 't-shirt'
+    and not exists (select 1 from public.products where name = 'Mono Graphic Tee')
   on conflict do nothing
   returning id
 )
@@ -90,7 +92,8 @@ with p as (
   select 'Linen Relaxed Shirt', null, id, 'pria', 259000, null, 'Linen blend', 'Kemeja relaxed fit berbahan linen blend yang breathable. Teksturnya natural dan makin enak dipakai seiring waktu.
 
 Bisa dipakai rapi dengan kancing tertutup atau santai sebagai outer di atas kaos.', '/products/linen-shirt-cream.svg', true
-  from public.categories where slug = 'kemeja' and (select go from _seed_flag)
+  from public.categories where slug = 'kemeja'
+    and not exists (select 1 from public.products where name = 'Linen Relaxed Shirt')
   on conflict do nothing
   returning id
 )
@@ -105,7 +108,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Cropped Poplin Shirt', null, id, 'wanita', 229000, null, 'Cotton poplin', 'Kemeja cropped berbahan cotton poplin yang crisp dan rapi. Panjangnya pas di pinggang, cocok dipadukan dengan celana high waist.', '/products/poplin-shirt-white.svg', false
-  from public.categories where slug = 'kemeja' and (select go from _seed_flag)
+  from public.categories where slug = 'kemeja'
+    and not exists (select 1 from public.products where name = 'Cropped Poplin Shirt')
   on conflict do nothing
   returning id
 )
@@ -121,7 +125,8 @@ with p as (
   select 'Boxy Zip Hoodie', null, id, 'unisex', 329000, null, 'Cotton fleece 280 gsm', 'Hoodie zip dengan potongan boxy dan bahan cotton fleece 280 gsm yang hangat. Hoodnya double layer, jadi bentuknya tetap tegas.
 
 Andalan buat ruangan ber-AC, perjalanan malam, atau layering santai.', '/products/zip-hoodie-black.svg', true
-  from public.categories where slug = 'hoodie' and (select go from _seed_flag)
+  from public.categories where slug = 'hoodie'
+    and not exists (select 1 from public.products where name = 'Boxy Zip Hoodie')
   on conflict do nothing
   returning id
 )
@@ -136,7 +141,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Soft Pullover Hoodie', null, id, 'wanita', 299000, 349000, 'Cotton fleece 260 gsm', 'Hoodie pullover dengan bahan fleece yang lembut di bagian dalam. Warna abu muda yang soft dan gampang dipadukan.', '/products/pullover-hoodie-grey.svg', false
-  from public.categories where slug = 'hoodie' and (select go from _seed_flag)
+  from public.categories where slug = 'hoodie'
+    and not exists (select 1 from public.products where name = 'Soft Pullover Hoodie')
   on conflict do nothing
   returning id
 )
@@ -152,7 +158,8 @@ with p as (
   select 'Minimalist Work Jacket', null, id, 'pria', 364000, null, 'Cotton canvas', 'Work jacket berbahan cotton canvas yang kokoh dengan detail kantong depan fungsional. Siluetnya clean, tanpa ornamen berlebihan.
 
 Layer di atas kaos atau hoodie untuk tampilan yang effortless.', '/products/work-jacket-olive.svg', true
-  from public.categories where slug = 'jacket' and (select go from _seed_flag)
+  from public.categories where slug = 'jacket'
+    and not exists (select 1 from public.products where name = 'Minimalist Work Jacket')
   on conflict do nothing
   returning id
 )
@@ -167,7 +174,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Cropped Denim Jacket', null, id, 'wanita', 389000, null, 'Denim 12 oz', 'Jaket denim cropped dengan bahan 12 oz yang kokoh. Potongannya pendek sehingga proporsional dengan celana high waist atau rok.', '/products/denim-jacket-blue.svg', false
-  from public.categories where slug = 'jacket' and (select go from _seed_flag)
+  from public.categories where slug = 'jacket'
+    and not exists (select 1 from public.products where name = 'Cropped Denim Jacket')
   on conflict do nothing
   returning id
 )
@@ -181,7 +189,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Cargo Pants Olive', null, id, 'unisex', 249000, null, 'Cotton twill', 'Celana cargo berbahan cotton twill dengan kantong samping yang fungsional. Potongan straight dan pinggang karet dengan tali, jadi nyaman dipakai seharian.', '/products/cargo-pants-olive.svg', true
-  from public.categories where slug = 'celana' and (select go from _seed_flag)
+  from public.categories where slug = 'celana'
+    and not exists (select 1 from public.products where name = 'Cargo Pants Olive')
   on conflict do nothing
   returning id
 )
@@ -200,7 +209,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Urban Relaxed Chino', null, id, 'pria', 259000, null, 'Cotton stretch twill', 'Chino relaxed fit dengan sedikit stretch, jadi tetap leluasa saat bergerak. Warna krem netral yang cocok untuk tampilan kasual maupun semi formal.', '/products/chino-cream.svg', false
-  from public.categories where slug = 'celana' and (select go from _seed_flag)
+  from public.categories where slug = 'celana'
+    and not exists (select 1 from public.products where name = 'Urban Relaxed Chino')
   on conflict do nothing
   returning id
 )
@@ -215,7 +225,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Wide Leg Trousers', null, id, 'wanita', 279000, null, 'Polyester rayon', 'Celana wide leg high waist dengan jatuh bahan yang flowy. Bikin kaki terlihat lebih jenjang dan tetap nyaman.', '/products/wide-trousers-black.svg', false
-  from public.categories where slug = 'celana' and (select go from _seed_flag)
+  from public.categories where slug = 'celana'
+    and not exists (select 1 from public.products where name = 'Wide Leg Trousers')
   on conflict do nothing
   returning id
 )
@@ -229,7 +240,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Everyday Cap', null, id, 'unisex', 99000, null, 'Cotton twill', 'Topi baseball low profile dengan strap belakang yang bisa diatur. Finishing bordir kecil yang subtle.', '/products/cap-black.svg', false
-  from public.categories where slug = 'topi' and (select go from _seed_flag)
+  from public.categories where slug = 'topi'
+    and not exists (select 1 from public.products where name = 'Everyday Cap')
   on conflict do nothing
   returning id
 )
@@ -242,7 +254,8 @@ select p.id, v.color, v.size, v.stock from p, (values
 with p as (
   insert into public.products (name, slug, category_id, gender, price, compare_at_price, material, description, image_url, is_featured)
   select 'Canvas Tote Bag', null, id, 'unisex', 119000, null, 'Canvas 16 oz', 'Tote bag kanvas tebal yang muat laptop 14 inci. Ada kantong dalam untuk barang kecil.', '/products/tote-natural.svg', false
-  from public.categories where slug = 'aksesoris' and (select go from _seed_flag)
+  from public.categories where slug = 'aksesoris'
+    and not exists (select 1 from public.products where name = 'Canvas Tote Bag')
   on conflict do nothing
   returning id
 )
