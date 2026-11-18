@@ -1,6 +1,6 @@
 # UrbanStore — Product Requirement Document (PRD)
 
-> Versi 1.2 · Status: Siap dieksekusi AI Agent · Studi kasus Vibe Coding Bootcamp Batch 4 (CODEPOLITAN)
+> Versi 2.0 · Status: Siap dieksekusi AI Agent · Studi kasus Vibe Coding Bootcamp Batch 4 (CODEPOLITAN)
 >
 > Dokumen ini adalah **source of truth**. Setiap prompt development wajib mengacu ke sini. Kalau ada hal yang belum diputuskan, tandai sebagai *Open Question* — jangan ditebak.
 
@@ -36,7 +36,7 @@ UrbanStore adalah online store fashion pria & wanita untuk Gen Z dengan **kurasi
 
 - **Goal 1 — Discoverability:** Memudahkan user menemukan outfit stylish tanpa tersesat katalog (produk relevan ditemukan ≤ 30 detik).
 - **Goal 2 — Shopping Confidence:** Menyediakan panduan ukuran visual yang jelas & terpercaya.
-- **Goal 3 — Fast Conversion:** Menyelesaikan checkout mobile dengan cepat tanpa hambatan (3 langkah, tanpa wajib daftar akun).
+- **Goal 3 — Fast Conversion:** Menyelesaikan checkout mobile dengan cepat tanpa hambatan (daftar akun 1 menit, checkout 3 langkah).
 
 ## 3. Success Metrics (KPI)
 
@@ -65,8 +65,9 @@ Format: **As a** [persona] **I want** [aksi] **so that** [benefit].
 - **US-01** As a customer, I want to filter products by category and gender, so that I can find trendy outfits that fit my style quickly.
 - **US-02** As a customer, I want to see clear size measurements, so that I can buy without worrying the size won't fit.
 - **US-03** As a customer, I want to change quantity or remove items in my cart, so that I always know my exact subtotal.
-- **US-04** As a customer, I want to checkout in 3 short steps without creating an account, so that I can finish buying in under 3 minutes.
-- **US-05** As a customer, I want to see an invoice with an order number and bank details, so that I know how to pay.
+- **US-04** As a customer, I want to checkout in 3 short steps with my province, city, and district, so that my order arrives at the right address.
+- **US-05** As a customer, I want to see an order number, bank details, a payment countdown, and upload my transfer proof, so that I know exactly how and when to pay.
+- **US-05b** As a customer, I want to download my invoice as PDF, so that I have proof of purchase.
 - **US-06** As a store admin, I want to add products with sizes and stock, so that the catalog is always up to date. *(v1.1)*
 - **US-07** As a store admin, I want to see incoming orders and confirm payments, so that I can process orders confidently. *(v1.1)*
 - **US-08** As a logged-in customer, I want to ask an AI assistant about stock and my size based on height/weight, so that I can decide faster. *(v1.2)*
@@ -105,38 +106,48 @@ Format: **As a** [persona] **I want** [aksi] **so that** [benefit].
 - Produk tanpa stok harus menampilkan badge status **"Habis"** secara jelas.
 - Produk diskon menampilkan harga coret & badge diskon.
 
-### FR-03 — Product Detail & Size Guide
-- Menampilkan foto, nama, harga, kategori, bahan, warna, deskripsi, stok.
-- Size picker wajib (S/M/L/XL sesuai varian produk) sebelum Add to Cart.
-- Panduan ukuran visual (tabel ukuran badan/pakaian + estimasi tinggi & berat badan).
-- Pengguna dapat menambah produk ke keranjang dari halaman detail.
+### FR-03 — Product Detail, Varian & Size Guide
+- Menampilkan foto, nama, harga, kategori, bahan, deskripsi.
+- **Varian = warna × ukuran**, stok disimpan per varian. Customer wajib memilih warna dan ukuran sebelum Add to Cart. Varian habis tampil dicoret dan tidak bisa dipilih.
+- Panduan ukuran visual (tabel ukuran pakaian + estimasi tinggi & berat badan).
+- Add to Cart memerlukan login customer. Tamu diarahkan ke halaman login lalu kembali ke produk.
 
 ### FR-04 — Shopping Cart
-- Pengguna dapat mengubah jumlah item (qty) atau menghapus item langsung.
-- Sistem harus mengupdate subtotal dan total biaya secara instan (realtime).
-- Item yang sama dengan ukuran berbeda disimpan sebagai baris berbeda.
+- Keranjang tersimpan di akun customer (tabel `cart_items`).
+- Pengguna dapat menambah/mengurangi jumlah item (qty) atau menghapus item langsung.
+- Sistem mengupdate subtotal dan total secara instan dan menolak qty melebihi stok varian.
+- Varian berbeda (warna/ukuran) disimpan sebagai baris berbeda.
 
-### FR-05 — 3-Step Checkout
-1. **Data pengiriman** — nama penerima, nomor WhatsApp, email, alamat lengkap, kota, kode pos.
+### FR-05 — 3-Step Checkout (wajib login)
+1. **Data pengiriman** — nama penerima, nomor WhatsApp, email, **provinsi → kota/kabupaten → kecamatan** (dropdown bertingkat), alamat lengkap, kode pos, catatan pengiriman.
 2. **Pengiriman & pembayaran** — Regular (Rp15.000) / Express Next Day (Rp30.000); pembayaran transfer bank manual.
-3. **Review** — ringkasan item, ongkir, total → tombol **Place Order**.
+3. **Review** — ringkasan item, ongkir, total → tombol **Checkout**.
 
-### FR-06 — Order Confirmation
+### FR-06 — Pesanan Berhasil, Pembayaran & Invoice
 - Generate nomor order unik (format `URB-YYYY-NNN`, contoh `URB-2026-001`).
-- Halaman invoice berisi status, item, total, instruksi transfer, dan tombol **"Saya Sudah Transfer"**.
-- Customer dapat membuka kembali invoice via nomor order + nomor WhatsApp.
+- Halaman pesanan berhasil menampilkan nomor order, info rekening & nominal transfer, dan **timer hitung mundur 1 jam**.
+- **Form upload bukti transfer.** Gambar dikompres di browser sebelum diupload ke storage privat. Setelah diupload, status berubah menjadi *Menunggu Verifikasi*.
+- **Invoice** tampil di halaman dengan stempel **BELUM LUNAS** (atau LUNAS / DIBATALKAN / KEDALUWARSA) dan bisa **diunduh sebagai PDF**.
+- Riwayat status pesanan ditampilkan sebagai timeline. Semua pesanan bisa dibuka lagi dari menu *Pesanan Saya*.
+
+### FR-07 — Store Admin
+- Login khusus admin di `/admin/login`. Role disimpan di tabel `profiles` dan tidak bisa diubah dari aplikasi.
+- Kelola produk & varian (stok per warna × ukuran), upload foto produk, arsipkan/aktifkan produk.
+- Kelola pesanan: lihat bukti transfer, **Konfirmasi Lunas**, **Tolak Bukti** (customer mendapat 1 jam lagi untuk upload ulang), tandai Dikirim/Selesai, Batalkan (stok kembali).
 
 ## 8. User Flow
 
 **Discover → Explore → Evaluate → Purchase → Complete**
 
-1. Product Detail (pilih size)
-2. Klik "Add to Cart"
-3. Review Shopping Cart
-4. Isi Checkout Form (alamat)
-5. Review Order Summary
-6. Klik "Place Order"
-7. Invoice & instruksi pembayaran
+1. Login / daftar akun customer
+2. Product Detail (pilih warna & ukuran)
+3. Klik "Add to Cart"
+4. Review Shopping Cart (tambah/kurang/hapus)
+5. Isi Checkout Form (provinsi, kota, kecamatan, alamat, catatan)
+6. Review Order Summary → klik "Checkout"
+7. Halaman pesanan berhasil: nomor order, rekening, timer 1 jam
+8. Transfer → upload bukti transfer
+9. Admin verifikasi → status Lunas → Dikirim → Selesai
 
 ## 9. Business Rules
 
@@ -145,8 +156,11 @@ Format: **As a** [persona] **I want** [aksi] **so that** [benefit].
 - **Kalkulasi total:** Total = Σ(Harga × Qty) + Ongkir flat. Harga selalu diambil dari database, bukan dari browser.
 - **Validitas pesanan:** order hanya berhasil jika field alamat & nomor HP valid.
 - **Snapshot harga:** harga & nama produk disimpan saat dibeli, sehingga invoice tidak berubah jika admin mengubah harga.
-- **Stok:** stok berkurang saat order dibuat dan dikembalikan jika order dibatalkan.
-- **Status pesanan:** Menunggu Pembayaran → Menunggu Verifikasi → Lunas (diproses) → Dikirim → Selesai; atau Dibatalkan.
+- **Stok per varian:** stok varian berkurang saat order dibuat dan dikembalikan jika order dibatalkan atau kedaluwarsa.
+- **Batas waktu bayar:** 1 jam setelah checkout. Jika bukti transfer belum diupload sampai batas waktu, pesanan otomatis berstatus **Kedaluwarsa** dan stok dikembalikan.
+- **Bukti ditolak:** status kembali ke Menunggu Pembayaran dengan batas waktu baru 1 jam.
+- **Status pesanan:** Menunggu Pembayaran → Menunggu Verifikasi → Lunas (diproses) → Dikirim → Selesai; atau Dibatalkan / Kedaluwarsa.
+- **Akun admin** tidak bisa checkout; checkout hanya untuk role customer.
 
 ## 10. Acceptance Criteria (Gherkin)
 
@@ -185,10 +199,26 @@ Scenario: Validasi form checkout
   When nomor WhatsApp tidak valid
   Then muncul pesan error yang jelas dan solutif, dan pengguna tidak bisa lanjut
 
-Scenario: Admin konfirmasi pembayaran (v1.1)
+Scenario: Upload bukti transfer
+  Given order berstatus "Menunggu Pembayaran" dan timer belum habis
+  When customer memilih foto bukti transfer dan menekan "Kirim Bukti Transfer"
+  Then gambar dikompres lalu tersimpan di storage privat
+  And status berubah menjadi "Menunggu Verifikasi"
+
+Scenario: Batas waktu pembayaran habis
+  Given order berstatus "Menunggu Pembayaran"
+  When 1 jam berlalu tanpa bukti transfer
+  Then status berubah menjadi "Kedaluwarsa" dan stok varian dikembalikan
+
+Scenario: Download invoice
+  Given customer membuka halaman pesanan miliknya
+  When customer menekan "Download Invoice (PDF)"
+  Then file PDF terunduh dengan stempel "BELUM LUNAS" selama pesanan belum dikonfirmasi
+
+Scenario: Admin konfirmasi pembayaran
   Given order berstatus "Menunggu Verifikasi"
-  When admin menekan "Konfirmasi Lunas"
-  Then status berubah menjadi "Lunas" dan terlihat di halaman invoice customer
+  When admin melihat bukti transfer dan menekan "Konfirmasi Lunas"
+  Then status berubah menjadi "Lunas" dan terlihat di halaman pesanan customer
 ```
 
 ## 11. Non-Functional Requirements
@@ -201,7 +231,8 @@ Scenario: Admin konfirmasi pembayaran (v1.1)
 
 ## 12. Technical Constraints
 
-- **Stack:** Vite + React + Tailwind CSS (frontend), Node.js + Express (backend), SQLite (database).
+- **Stack:** Vite + React + Tailwind CSS (frontend) yang terhubung langsung ke **Supabase** (Postgres, Auth email/password, Storage) dengan Row Level Security; Express kecil sebagai Vercel Function khusus endpoint AI.
+- **Deploy:** Vercel (static frontend + Function `/api`).
 - **Design system:** Swiss × Japanese minimalism — font Inter, strong grid, generous whitespace, tanpa gradient/shadow berlebihan, foto produk sebagai fokus. Warna: hitam `#0A0A0A`, putih `#FFFFFF`, aksen lemon `#D9F24A`.
 - **Copywriting:** Bahasa Indonesia gaya Gen Z yang natural.
 - **No payment assumed:** jangan mengasumsikan payment gateway live tanpa API key; MVP memakai transfer bank manual.
@@ -233,7 +264,19 @@ Mengubah landing page menjadi aplikasi web fullstack.
 - **Model cadangan:** jika model utama overload / rate limit (503/429), request otomatis dialihkan ke `GEMINI_FALLBACK_MODEL`.
 - **Cost optimization:** kirim payload katalog ringkas & agregat (bukan data mentah), batasi riwayat chat.
 
+### v2.0 — Supabase, Varian & Pembayaran dengan Bukti Transfer
+
+- **Database & Auth pindah ke Supabase.** Tabel: profiles (role admin/customer), categories, size_charts, products, product_variants, cart_items, orders, order_items, payments, order_status_history, chat_quota. Semua tabel dilindungi RLS. Operasi penting dijalankan lewat fungsi SQL (`place_order`, `submit_payment_proof`, `admin_update_order_status`, `admin_save_product`, `get_sales_metrics`, `expire_overdue_orders`).
+- **Checkout wajib login** (sebelumnya guest). Halaman cek pesanan via nomor order + WhatsApp dihapus dan digantikan *Pesanan Saya*.
+- **Varian warna × ukuran** dengan stok per varian.
+- **Alamat bertingkat** provinsi → kota/kabupaten → kecamatan (data statis Kemendagri via emsifa/api-wilayah-indonesia).
+- **Pembayaran:** timer 1 jam, upload bukti transfer (dikompres), verifikasi admin, kedaluwarsa otomatis.
+- **Invoice PDF** dengan stempel status.
+- **Deploy Vercel**; endpoint AI menjadi Vercel Function. Kuota chat dihitung di database dengan fungsi khusus `service_role`.
+
 ### Open Questions
 
-- Integrasi QRIS / payment gateway otomatis (ditunda v2).
-- Ongkir dinamis berdasarkan kota (saat ini flat).
+- Integrasi QRIS / payment gateway otomatis (ditunda).
+- Ongkir dinamis berdasarkan kota/kecamatan (saat ini flat).
+- Data wilayah memakai pembagian sebelum pemekaran Papua 2022 (34 provinsi).
+- Halaman lanjutan dari audit routing (lihat `docs/ROUTING_AUDIT.md`): `/keranjang`, `/admin/pesanan/:code`, lupa password, profil.
