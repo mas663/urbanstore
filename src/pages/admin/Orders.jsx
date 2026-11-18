@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../../lib/api.js';
+import { run, supabase } from '../../lib/supabase.js';
+import { ORDER_STATUS } from '../../lib/catalog.js';
 import { formatDate, rupiah } from '../../lib/format.js';
 import { useToast } from '../../context/AppContext.jsx';
 import { EmptyState, ErrorState, StatusBadge } from '../../components/ui.jsx';
@@ -8,51 +9,83 @@ import { PageHeader } from './AdminLayout.jsx';
 
 const FILTERS = [
   ['', 'Semua'],
-  ['menunggu_verifikasi', 'Menunggu Verifikasi'],
+  ['menunggu_verifikasi', 'Perlu Verifikasi'],
   ['menunggu_pembayaran', 'Belum Bayar'],
   ['lunas', 'Lunas'],
   ['dikirim', 'Dikirim'],
   ['selesai', 'Selesai'],
   ['dibatalkan', 'Dibatalkan'],
+  ['kedaluwarsa', 'Kedaluwarsa'],
 ];
+
+// Sama dengan aturan transisi di fungsi admin_update_order_status (database)
+const NEXT = {
+  menunggu_pembayaran: ['lunas', 'dibatalkan'],
+  menunggu_verifikasi: ['lunas', 'menunggu_pembayaran', 'dibatalkan'],
+  lunas: ['dikirim', 'dibatalkan'],
+  dikirim: ['selesai'],
+};
 
 const ACTION = {
   lunas: { label: '✓ Konfirmasi Lunas', cls: 'btn-primary' },
   dikirim: { label: 'Tandai Dikirim', cls: 'btn-outline' },
   selesai: { label: 'Tandai Selesai', cls: 'btn-outline' },
-  menunggu_pembayaran: { label: 'Tolak (transfer belum masuk)', cls: 'btn-ghost' },
+  menunggu_pembayaran: { label: 'Tolak Bukti', cls: 'btn-ghost', confirm: 'Tolak bukti transfer ini? Customer diberi waktu 1 jam lagi untuk upload ulang.' },
   dibatalkan: { label: 'Batalkan', cls: 'btn-ghost text-danger', confirm: 'Batalkan pesanan ini? Stok produk akan dikembalikan.' },
 };
 
-function OrderDetail({ id }) {
-  const [order, setOrder] = useState(null);
-  useEffect(() => {
-    api(`/admin/orders/${id}`).then((d) => setOrder(d.order)).catch(() => setOrder(false));
-  }, [id]);
-  if (order === null) return <div className="skeleton h-24" />;
-  if (!order) return <p className="text-sm text-danger">Gagal memuat detail.</p>;
+const SELECT = 'id, code, customer_name, phone, email, province, city, district, address, postal_code, notes, shipping_method,' +
+  ' shipping_cost, subtotal, total, status, payment_deadline, created_at,' +
+  ' items:order_items(id, product_name, color, size, qty, price), payment:payments(status, proof_path, proof_uploaded_at, verified_at),' +
+  ' history:order_status_history(status, note, created_at)';
+
+async function openProof(path, toast) {
+  const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(path, 300);
+  if (error || !data?.signedUrl) return toast('Gagal membuka bukti transfer.', 'error');
+  window.open(data.signedUrl, '_blank', 'noopener');
+}
+
+function OrderDetail({ o, toast }) {
+  const history = [...(o.history || [])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   return (
-    <div className="grid gap-6 text-sm md:grid-cols-2">
+    <div className="grid gap-6 text-sm md:grid-cols-3">
       <div>
         <p className="eyebrow mb-2">Pengiriman</p>
-        <p className="font-medium">{order.customer.name} · {order.customer.phone}</p>
-        <p className="text-mute">{order.customer.email}</p>
-        <p className="mt-1">{order.customer.address}, {order.customer.city} {order.customer.postalCode}</p>
-        {order.customer.notes && <p className="mt-1 text-mute">Catatan: {order.customer.notes}</p>}
-        <p className="mt-2">Kurir: {order.shipping.method === 'express' ? 'Express Next Day' : 'Regular'} ({rupiah(order.shipping.cost)})</p>
-        {order.payment?.claimedAt && <p className="mt-2 text-mute">Customer klik "Sudah Transfer": {formatDate(order.payment.claimedAt)}</p>}
-        {order.payment?.verifiedAt && <p className="text-mute">Diverifikasi: {formatDate(order.payment.verifiedAt)}</p>}
+        <p className="font-medium">{o.customer_name} · {o.phone}</p>
+        <p className="text-mute">{o.email}</p>
+        <p className="mt-1">{o.address}</p>
+        <p>Kec. {o.district}, {o.city}, {o.province} {o.postal_code}</p>
+        {o.notes && <p className="mt-1 text-mute">Catatan: {o.notes}</p>}
+        <p className="mt-2">Kurir: {o.shipping_method === 'express' ? 'Express Next Day' : 'Regular'} ({rupiah(o.shipping_cost)})</p>
       </div>
       <div>
         <p className="eyebrow mb-2">Item</p>
         <ul className="space-y-1">
-          {order.items.map((i) => (
+          {o.items.map((i) => (
             <li key={i.id} className="flex justify-between gap-3">
-              <span>{i.qty}× {i.name} ({i.size})</span><span className="tabular-nums">{rupiah(i.lineTotal)}</span>
+              <span>{i.qty}× {i.product_name} <span className="text-mute">({i.color}/{i.size})</span></span>
+              <span className="tabular-nums">{rupiah(i.price * i.qty)}</span>
             </li>
           ))}
         </ul>
-        <p className="mt-2 flex justify-between border-t border-line pt-2 font-semibold"><span>Total</span><span>{rupiah(order.total)}</span></p>
+        <p className="mt-2 flex justify-between border-t border-line pt-2 font-semibold"><span>Total</span><span>{rupiah(o.total)}</span></p>
+      </div>
+      <div>
+        <p className="eyebrow mb-2">Pembayaran</p>
+        {o.payment?.proof_path ? (
+          <>
+            <p>Bukti diupload {formatDate(o.payment.proof_uploaded_at)}</p>
+            <button className="btn-outline btn-sm mt-2" onClick={() => openProof(o.payment.proof_path, toast)}>Lihat bukti transfer ↗</button>
+          </>
+        ) : <p className="text-mute">Belum ada bukti transfer.</p>}
+        {o.status === 'menunggu_pembayaran' && <p className="mt-2 text-mute">Batas bayar: {formatDate(o.payment_deadline)}</p>}
+        {o.payment?.verified_at && <p className="mt-2 text-mute">Diverifikasi {formatDate(o.payment.verified_at)}</p>}
+        <p className="eyebrow mb-2 mt-4">Riwayat</p>
+        <ol className="space-y-1 border-l border-line pl-3">
+          {history.map((h, i) => (
+            <li key={i}><span className="font-medium">{ORDER_STATUS[h.status]}</span> <span className="text-xs text-mute">· {formatDate(h.created_at)}</span></li>
+          ))}
+        </ol>
       </div>
     </div>
   );
@@ -68,11 +101,22 @@ export default function Orders() {
   const [busyId, setBusyId] = useState(null);
   const toast = useToast();
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setError('');
-    api(`/admin/orders?status=${status}&q=${encodeURIComponent(q)}`)
-      .then((d) => setOrders(d.orders))
-      .catch((e) => setError(e.message));
+    try {
+      await supabase.rpc('expire_overdue_orders');
+      let query = supabase.from('orders').select(SELECT).order('created_at', { ascending: false }).limit(200);
+      if (status) query = query.eq('status', status);
+      const term = q.trim().replace(/[%_,()*\\]/g, '');
+      if (term) query = query.or(`code.ilike.%${term}%,customer_name.ilike.%${term}%,phone.ilike.%${term}%`);
+      const rows = await run(query);
+      // Yang perlu tindakan admin tampil paling atas
+      const rank = { menunggu_verifikasi: 0, menunggu_pembayaran: 1, lunas: 2 };
+      rows.sort((a, b) => (rank[a.status] ?? 3) - (rank[b.status] ?? 3));
+      setOrders(rows);
+    } catch (e) {
+      setError(e.message);
+    }
   }, [status, q]);
 
   useEffect(() => {
@@ -85,9 +129,9 @@ export default function Orders() {
     if (a.confirm && !window.confirm(a.confirm)) return;
     setBusyId(order.id);
     try {
-      await api(`/admin/orders/${order.id}/status`, { method: 'PATCH', body: { status: next } });
-      toast(`#${order.code} → ${FILTERS.find(([v]) => v === next)?.[1] || next}`);
-      load();
+      await run(supabase.rpc('admin_update_order_status', { p_order_id: order.id, p_status: next, p_note: '' }));
+      toast(`#${order.code} → ${ORDER_STATUS[next]}`);
+      await load();
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -118,27 +162,33 @@ export default function Orders() {
                 <button className="flex-1 text-left" onClick={() => setOpen(open === o.id ? null : o.id)} aria-expanded={open === o.id}>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="font-mono text-sm font-semibold">#{o.code}</span>
-                    <StatusBadge status={o.status} label={o.statusLabel} />
-                    <span className="text-xs text-mute">{formatDate(o.createdAt)}</span>
+                    <StatusBadge status={o.status} label={ORDER_STATUS[o.status]} />
+                    {o.payment?.proof_path && o.status === 'menunggu_verifikasi' && <span className="text-xs font-semibold">· bukti terlampir</span>}
+                    <span className="text-xs text-mute">{formatDate(o.created_at)}</span>
                   </div>
-                  <p className="mt-2 font-medium">{o.customerName} <span className="font-normal text-mute">({o.phone}) · {o.city}</span></p>
-                  <p className="mt-1 line-clamp-1 text-sm text-mute">{o.summary}</p>
+                  <p className="mt-2 font-medium">{o.customer_name} <span className="font-normal text-mute">({o.phone}) · {o.city}</span></p>
+                  <p className="mt-1 line-clamp-1 text-sm text-mute">
+                    {o.items.map((i) => `${i.qty}× ${i.product_name} (${i.color}/${i.size})`).join(', ')}
+                  </p>
                 </button>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <span className="mr-2 text-lg font-semibold tabular-nums">{rupiah(o.total)}</span>
-                  {o.nextStatuses.map((s) => (
+                  {o.payment?.proof_path && ['menunggu_verifikasi', 'lunas'].includes(o.status) && (
+                    <button className="btn-ghost btn-sm" onClick={() => openProof(o.payment.proof_path, toast)}>Bukti ↗</button>
+                  )}
+                  {(NEXT[o.status] || []).map((s) => (
                     <button key={s} className={`${ACTION[s].cls} btn-sm`} disabled={busyId === o.id} onClick={() => changeStatus(o, s)}>
                       {ACTION[s].label}
                     </button>
                   ))}
                 </div>
               </div>
-              {open === o.id && <div className="border-t border-line p-4"><OrderDetail id={o.id} /></div>}
+              {open === o.id && <div className="border-t border-line p-4"><OrderDetail o={o} toast={toast} /></div>}
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-6 bg-ink px-4 py-3 text-xs text-paper">Status yang diperbarui admin otomatis terlihat di halaman invoice customer.</p>
+      <p className="mt-6 bg-ink px-4 py-3 text-xs text-paper">Status yang diperbarui admin langsung terlihat di halaman pesanan customer.</p>
     </>
   );
 }

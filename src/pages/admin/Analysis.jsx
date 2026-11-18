@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, streamApi } from '../../lib/api.js';
+import { run, supabase } from '../../lib/supabase.js';
 import { cleanAiText, rupiah } from '../../lib/format.js';
 import { RefreshIcon, SparkIcon } from '../../components/icons.jsx';
 import { EmptyState, ErrorState } from '../../components/ui.jsx';
@@ -50,9 +51,8 @@ export default function Analysis() {
   const ctrlRef = useRef(null);
 
   useEffect(() => {
-    api('/admin/analytics')
-      .then((d) => { setMetrics(d.metrics); setAi(d.ai); })
-      .catch((e) => setLoadError(e.message));
+    run(supabase.rpc('get_sales_metrics')).then(setMetrics).catch((e) => setLoadError(e.message));
+    api('/ai/status?scope=admin').then(setAi).catch(() => setAi({ enabled: false }));
     return () => ctrlRef.current?.abort();
   }, []);
 
@@ -86,13 +86,13 @@ export default function Analysis() {
   return (
     <>
       <PageHeader eyebrow="AI Business Tools" title="Analisis Penjualan"
-        action={m.orders.total > 0 && (
+        action={m.orders.total + m.orders.cancelled > 0 && (
           <button className="btn-primary" onClick={generate} disabled={busy || !ai?.enabled}>
             {busy ? 'Menyusun dokumen…' : doc ? <><RefreshIcon size={16} /> Generate ulang</> : <><SparkIcon size={16} /> Generate Analisis AI</>}
           </button>
         )} />
 
-      {m.orders.total === 0 ? (
+      {m.orders.total + m.orders.cancelled === 0 ? (
         <EmptyState title="Belum ada data transaksi"
           text="Analisis penjualan AI bisa dibuat setelah ada pesanan masuk dari customer."
           action={<Link to="/admin/pesanan" className="btn-outline">Lihat pesanan</Link>} />
@@ -103,7 +103,7 @@ export default function Analysis() {
               ['Omzet terkonfirmasi', rupiah(m.revenue.confirmed)],
               ['Menunggu pembayaran', rupiah(m.revenue.pending)],
               ['Rata-rata order (AOV)', rupiah(m.revenue.avgOrderValue)],
-              ['Pesanan (non-batal)', `${m.orders.total} · ${m.orders.cancelled} batal`],
+              ['Pesanan aktif', `${m.orders.total} · ${m.orders.cancelled} batal/kedaluwarsa`],
             ].map(([l, v]) => (
               <div key={l} className="border border-line bg-paper p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mute">{l}</p>

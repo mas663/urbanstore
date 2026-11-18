@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../lib/api.js';
+import { fetchProducts } from '../../lib/catalog.js';
+import { run, supabase } from '../../lib/supabase.js';
 import { GENDER_LABEL, rupiah } from '../../lib/format.js';
 import { useToast } from '../../context/AppContext.jsx';
 import { EmptyState, ErrorState } from '../../components/ui.jsx';
@@ -9,40 +10,27 @@ import { PageHeader } from './AdminLayout.jsx';
 export default function Products() {
   const [tab, setTab] = useState('active');
   const [q, setQ] = useState('');
-  const [products, setProducts] = useState(null);
+  const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const toast = useToast();
 
   const load = useCallback(() => {
     setError('');
-    api(`/admin/products?status=${tab}&q=${encodeURIComponent(q)}`)
-      .then((d) => setProducts(d.products))
-      .catch((e) => setError(e.message));
-  }, [tab, q]);
+    fetchProducts({ includeInactive: true, sort: 'newest', limit: 500 }).then(setAll).catch((e) => setError(e.message));
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const t = setTimeout(load, 250);
-    return () => clearTimeout(t);
-  }, [load]);
+  const products = useMemo(() => {
+    if (!all) return null;
+    const term = q.trim().toLowerCase();
+    return all.filter((p) => (tab === 'active' ? p.isActive : !p.isActive) && (!term || p.name.toLowerCase().includes(term)));
+  }, [all, tab, q]);
 
-  async function archive(p) {
-    if (!window.confirm(`Arsipkan "${p.name}"? Produk tidak akan tampil di katalog.`)) return;
+  async function setActive(p, isActive) {
+    if (!isActive && !window.confirm(`Arsipkan "${p.name}"? Produk tidak akan tampil di katalog.`)) return;
     try {
-      await api(`/admin/products/${p.id}`, { method: 'DELETE' });
-      toast('Produk diarsipkan');
-      load();
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  }
-
-  async function restore(p) {
-    try {
-      await api(`/admin/products/${p.id}`, {
-        method: 'PUT',
-        body: { ...p, categoryId: p.category.id, isActive: true },
-      });
-      toast('Produk aktif lagi di katalog');
+      await run(supabase.from('products').update({ is_active: isActive }).eq('id', p.id));
+      toast(isActive ? 'Produk aktif lagi di katalog' : 'Produk diarsipkan');
       load();
     } catch (e) {
       toast(e.message, 'error');
@@ -67,11 +55,11 @@ export default function Products() {
           action={tab === 'active' && <Link to="/admin/produk/baru" className="btn-primary">Tambah produk pertama</Link>} />
       ) : (
         <div className="overflow-x-auto border border-line bg-paper">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-mute">
                 <th className="p-3">Produk</th><th className="p-3">Kategori</th><th className="p-3">Harga</th>
-                <th className="p-3">Ukuran</th><th className="p-3">Stok</th><th className="p-3 text-right">Aksi</th>
+                <th className="p-3">Varian</th><th className="p-3">Stok</th><th className="p-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -88,18 +76,24 @@ export default function Products() {
                   </td>
                   <td className="p-3">{p.category.name}<span className="block text-xs text-mute">{GENDER_LABEL[p.gender]}</span></td>
                   <td className="p-3 tabular-nums">{rupiah(p.price)}</td>
-                  <td className="p-3">{p.sizes.join(', ')}</td>
                   <td className="p-3">
-                    <span className={`px-2 py-0.5 text-xs font-semibold ${p.stock === 0 ? 'bg-ink text-paper' : p.stock <= 5 ? 'bg-lemon' : 'bg-soft'}`}>
+                    <span>{p.colors.join(', ')}</span>
+                    <span className="block text-xs text-mute">{p.sizes.join(' · ')} · {p.variants.length} varian</span>
+                  </td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 text-xs font-semibold ${p.stock === 0 ? 'bg-ink text-paper' : p.variants.some((v) => v.stock === 0) ? 'bg-lemon' : 'bg-soft'}`}>
                       {p.stock === 0 ? 'Habis' : p.stock}
                     </span>
+                    {p.stock > 0 && p.variants.some((v) => v.stock === 0) && (
+                      <span className="mt-1 block text-[11px] text-mute">{p.variants.filter((v) => v.stock === 0).length} varian habis</span>
+                    )}
                   </td>
                   <td className="p-3 text-right">
                     <div className="flex justify-end gap-1">
                       <Link to={`/admin/produk/${p.id}`} className="btn-ghost btn-sm">Edit</Link>
-                      {tab === 'active'
-                        ? <button className="btn-ghost btn-sm text-danger" onClick={() => archive(p)}>Arsipkan</button>
-                        : <button className="btn-ghost btn-sm" onClick={() => restore(p)}>Aktifkan</button>}
+                      {p.isActive
+                        ? <button className="btn-ghost btn-sm text-danger" onClick={() => setActive(p, false)}>Arsipkan</button>
+                        : <button className="btn-ghost btn-sm" onClick={() => setActive(p, true)}>Aktifkan</button>}
                     </div>
                   </td>
                 </tr>

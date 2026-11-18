@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../lib/api.js';
+import { run, supabase } from '../../lib/supabase.js';
 import { rupiah } from '../../lib/format.js';
 import { ErrorState } from '../../components/ui.jsx';
 import { PageHeader } from './AdminLayout.jsx';
@@ -16,16 +16,22 @@ function Stat({ label, value, tone = 'bg-paper', to }) {
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState(null);
+  const [m, setM] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api('/admin/stats').then(setData).catch((e) => setError(e.message));
+    (async () => {
+      try {
+        await supabase.rpc('expire_overdue_orders');
+        setM(await run(supabase.rpc('get_sales_metrics')));
+      } catch (e) {
+        setError(e.message);
+      }
+    })();
   }, []);
 
   if (error) return <ErrorState message={error} />;
-  if (!data) return <div className="grid gap-3 sm:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-32" />)}</div>;
-  const t = data.totals;
+  if (!m) return <div className="grid gap-3 sm:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-32" />)}</div>;
 
   return (
     <>
@@ -33,30 +39,30 @@ export default function Dashboard() {
         action={<Link to="/admin/produk/baru" className="btn-primary">+ Tambah Produk</Link>} />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Total pesanan masuk" value={`${t.totalOrders} Pesanan`} to="/admin/pesanan" />
-        <Stat label="Menunggu konfirmasi admin" value={`${t.awaitingVerification} Pesanan`} tone="bg-lemon" to="/admin/pesanan?status=menunggu_verifikasi" />
-        <Stat label="Omzet terkonfirmasi" value={rupiah(t.confirmedRevenue)} tone="bg-ink text-paper" />
+        <Stat label="Total pesanan aktif" value={`${m.orders.total} Pesanan`} to="/admin/pesanan" />
+        <Stat label="Menunggu konfirmasi admin" value={`${m.orders.awaitingVerification} Pesanan`} tone="bg-lemon" to="/admin/pesanan?status=menunggu_verifikasi" />
+        <Stat label="Omzet terkonfirmasi" value={rupiah(m.revenue.confirmed)} tone="bg-ink text-paper" />
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <Stat label="Belum bayar" value={t.awaitingPayment} to="/admin/pesanan?status=menunggu_pembayaran" />
-        <Stat label="Produk aktif" value={t.activeProducts} to="/admin/produk" />
-        <Stat label="Produk habis" value={t.outOfStock} to="/admin/produk" />
+        <Stat label="Belum bayar (timer jalan)" value={m.orders.awaitingPayment} to="/admin/pesanan?status=menunggu_pembayaran" />
+        <Stat label="Produk aktif" value={m.catalog.activeProducts} to="/admin/produk" />
+        <Stat label="Batal / kedaluwarsa" value={m.orders.cancelled} to="/admin/pesanan?status=kedaluwarsa" />
       </div>
 
       <section className="mt-10 border border-line bg-paper p-5">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Stok menipis (≤ 5)</h2>
+          <h2 className="font-semibold">Stok varian menipis (≤ 3)</h2>
           <Link to="/admin/produk" className="text-sm underline underline-offset-4">Kelola produk</Link>
         </div>
-        {data.lowStock.length === 0 ? (
-          <p className="mt-4 text-sm text-mute">Aman, semua stok masih di atas 5.</p>
+        {m.lowStock.length === 0 ? (
+          <p className="mt-4 text-sm text-mute">Aman, semua varian masih di atas 3 pcs.</p>
         ) : (
           <ul className="mt-4 divide-y divide-line">
-            {data.lowStock.map((p) => (
-              <li key={p.id} className="flex items-center justify-between py-3 text-sm">
-                <Link to={`/admin/produk/${p.id}`} className="hover:underline">{p.name}</Link>
-                <span className={`px-2 py-0.5 text-xs font-semibold ${p.stock === 0 ? 'bg-ink text-paper' : 'bg-soft'}`}>
-                  {p.stock === 0 ? 'Habis' : `${p.stock} pcs`}
+            {m.lowStock.map((v) => (
+              <li key={`${v.name}-${v.color}-${v.size}`} className="flex items-center justify-between py-3 text-sm">
+                <span>{v.name} <span className="text-mute">· {v.color} / {v.size}</span></span>
+                <span className={`px-2 py-0.5 text-xs font-semibold ${v.stock === 0 ? 'bg-ink text-paper' : 'bg-soft'}`}>
+                  {v.stock === 0 ? 'Habis' : `${v.stock} pcs`}
                 </span>
               </li>
             ))}
