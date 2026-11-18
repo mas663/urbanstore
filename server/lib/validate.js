@@ -81,8 +81,8 @@ export function validateProduct(body, { allowedSizes, isCreate }) {
   if (data.compareAtPrice !== null && (!Number.isInteger(data.compareAtPrice) || data.compareAtPrice <= data.price)) {
     errors.compareAtPrice = 'Harga coret harus lebih besar dari harga jual (kosongkan jika tidak diskon).';
   }
-  if (!Number.isInteger(data.stock) || data.stock < 0) errors.stock = 'Stok harus berupa angka.';
-  else if (isCreate && data.stock <= 0) errors.stock = 'Stok awal harus lebih dari 0.';
+  if (isCreate && (!Number.isInteger(data.stock) || data.stock <= 0)) errors.stock = 'Stok awal wajib diisi dan harus lebih dari 0.';
+  else if (!Number.isInteger(data.stock) || data.stock < 0) errors.stock = 'Stok wajib diisi (angka 0 atau lebih).';
   else if (data.stock > 100000) errors.stock = 'Stok terlalu besar.';
   if (data.sizes.length === 0) errors.sizes = 'Pilih minimal 1 varian ukuran.';
   else if (data.sizes.some((s) => !allowedSizes.includes(s))) errors.sizes = 'Ukuran tidak dikenali.';

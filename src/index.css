@@ -1,0 +1,87 @@
+@import 'tailwindcss';
+
+/* Design system UrbanStore — Swiss International Style × Japanese Minimalism */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-ink: #0a0a0a;
+  --color-paper: #ffffff;
+  --color-soft: #f4f4f1;
+  --color-line: #e4e4e0;
+  --color-mute: #6b6b66;
+  --color-lemon: #d9f24a;
+  --color-danger: #c4271d;
+  --color-ok: #1f7a3d;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  ::selection {
+    @apply bg-lemon text-ink;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .container-x {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-mute;
+  }
+  .btn,
+  .btn-primary,
+  .btn-outline,
+  .btn-lemon,
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-5 h-12 text-sm font-semibold tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply bg-ink text-paper hover:bg-ink/85;
+  }
+  .btn-outline {
+    @apply border border-ink text-ink hover:bg-ink hover:text-paper;
+  }
+  .btn-lemon {
+    @apply bg-lemon text-ink hover:bg-[#cbe63a];
+  }
+  .btn-ghost {
+    @apply px-3 h-10 hover:bg-soft;
+  }
+  .btn-sm {
+    @apply h-9 px-3 text-xs;
+  }
+  .input {
+    @apply w-full h-12 border border-line bg-paper px-4 text-[15px] placeholder:text-mute/70 focus:border-ink focus:outline-none transition-colors;
+  }
+  .input-error {
+    @apply border-danger;
+  }
+  .label {
+    @apply mb-2 block text-xs font-semibold uppercase tracking-[0.12em];
+  }
+  .chip {
+    @apply inline-flex items-center h-9 px-4 border border-line text-sm whitespace-nowrap transition-colors hover:border-ink;
+  }
+  .chip-active {
+    @apply border-ink bg-ink text-paper;
+  }
+  .skeleton {
+    @apply animate-pulse bg-soft;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
