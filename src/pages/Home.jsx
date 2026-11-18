@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api.js';
+import { fetchProducts } from '../lib/catalog.js';
 import { ArrowIcon } from '../components/icons.jsx';
 import { ProductCard, ProductGridSkeleton } from '../components/ui.jsx';
 
@@ -11,30 +11,30 @@ import { ProductCard, ProductGridSkeleton } from '../components/ui.jsx';
 const VALUES = [
   { n: '01', title: 'Kurasi, bukan katalog raksasa', text: 'Cuma item yang beneran wearable buat harian. Nggak perlu scroll ribuan produk buat nemu satu yang cocok.' },
   { n: '02', title: 'Size jelas dari awal', text: 'Setiap produk punya size chart visual dalam cm plus estimasi tinggi & berat badan. Bye, salah ukuran.' },
-  { n: '03', title: 'Checkout 3 langkah', text: 'Isi alamat, pilih pengiriman, review. Done. Nggak wajib bikin akun.' },
+  { n: '03', title: 'Checkout 3 langkah', text: 'Isi alamat, pilih pengiriman, review. Done. Bayar transfer, upload bukti, beres.' },
 ];
 
 const BENEFITS = [
   ['Bahan dijelasin detail', 'Jenis kain dan ketebalannya ditulis di setiap produk, jadi kamu tahu apa yang kamu beli.'],
   ['Harga transparan', 'Total = harga barang + ongkir flat. Kelihatan dari awal, nggak ada biaya kejutan.'],
   ['Foto produk jadi fokus', 'Tampilan bersih tanpa banner iklan yang ganggu. Kamu fokus ke outfit-nya.'],
-  ['Pantau pesanan gampang', 'Cek status pesanan kapan aja cukup pakai nomor order & WhatsApp.'],
+  ['Pantau pesanan gampang', 'Semua pesanan, invoice PDF, dan status pembayaran ada di menu Pesanan Saya.'],
 ];
 
 const FAQ = [
   ['Gimana cara milih ukuran yang pas?', 'Buka halaman produk lalu cek Size Guide. Di sana ada ukuran lebar dada / pinggang dan panjang dalam cm, plus estimasi tinggi & berat badan untuk tiap size. Kalau sudah punya akun, kamu juga bisa tanya AI Shopping Assistant.'],
-  ['Harus bikin akun dulu buat belanja?', 'Nggak wajib. Kamu bisa langsung checkout pakai nama, nomor WhatsApp, dan alamat. Akun cuma dibutuhkan kalau mau pakai AI Shopping Assistant dan lihat riwayat pesanan.'],
-  ['Metode pembayarannya apa aja?', 'Saat ini pembayaran via transfer bank manual. Setelah order dibuat, kamu dapat invoice berisi nomor rekening dan total yang harus ditransfer, lalu klik "Saya Sudah Transfer". Admin akan memverifikasi dan mengubah status jadi Lunas.'],
+  ['Harus bikin akun dulu buat belanja?', 'Iya, cukup daftar pakai email & password (gratis, 1 menit). Dengan akun, keranjang kamu tersimpan, pesanan & invoice bisa dipantau, dan kamu bisa pakai AI Shopping Assistant.'],
+  ['Metode pembayarannya apa aja?', 'Saat ini pembayaran via transfer bank manual. Setelah checkout kamu dapat nomor order, info rekening, dan waktu 1 jam untuk transfer lalu upload bukti transfer. Admin memverifikasi dan mengubah status jadi Lunas. Lewat 1 jam tanpa bukti, pesanan dibatalkan otomatis.'],
   ['Ongkirnya berapa?', 'Ada dua pilihan: Regular Shipping Rp15.000 (2–4 hari kerja) dan Express Next Day Rp30.000.'],
-  ['Gimana cara cek status pesanan?', 'Buka menu Cek Pesanan, lalu masukkan nomor order (contoh URB-2026-001) dan nomor WhatsApp yang kamu pakai saat checkout.'],
+  ['Gimana cara cek status pesanan?', 'Login lalu buka menu Pesanan Saya. Di sana ada status terbaru, riwayat, dan tombol download invoice PDF untuk setiap pesanan (contoh nomor order: URB-2026-001).'],
 ];
 
 export default function Home() {
   const [featured, setFeatured] = useState(null);
 
   useEffect(() => {
-    api('/products?featured=1&limit=6')
-      .then((d) => setFeatured(d.products))
+    fetchProducts({ featured: true, limit: 6 })
+      .then(setFeatured)
       .catch(() => setFeatured([]));
   }, []);
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../lib/api.js';
+import { run, supabase } from '../lib/supabase.js';
+import { ORDER_STATUS } from '../lib/catalog.js';
 import { formatDate, rupiah } from '../lib/format.js';
 import { useAuth } from '../context/AppContext.jsx';
 import { EmptyState, ErrorState, Field, StatusBadge } from '../components/ui.jsx';
@@ -21,47 +22,8 @@ function AuthShell({ eyebrow, title, children, footer }) {
   );
 }
 
-export function OrderLookup() {
-  const [form, setForm] = useState({ code: '', phone: '' });
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const navigate = useNavigate();
-
-  async function submit(e) {
-    e.preventDefault();
-    setError('');
-    if (!form.code.trim() || !form.phone.trim()) return setError('Isi nomor order dan nomor WhatsApp dulu ya.');
-    setBusy(true);
-    try {
-      const d = await api('/orders/lookup', { method: 'POST', body: form });
-      navigate(`/pesanan/${d.code}?t=${d.token}`);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <AuthShell eyebrow="Lacak pesanan" title="Cek Pesanan">
-      <form onSubmit={submit} className="space-y-5" noValidate>
-        <Field label="Nomor order" htmlFor="code" hint="Contoh: URB-2026-001">
-          <input id="code" className="input uppercase" value={form.code} placeholder="URB-2026-001"
-            onChange={(e) => setForm({ ...form, code: e.target.value })} />
-        </Field>
-        <Field label="Nomor WhatsApp" htmlFor="phone" hint="Yang dipakai saat checkout.">
-          <input id="phone" className="input" inputMode="tel" value={form.phone} placeholder="0812xxxxxxxx"
-            onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        </Field>
-        {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Mencari…' : 'Cek Status'}</button>
-      </form>
-    </AuthShell>
-  );
-}
-
 export function Login({ admin = false }) {
-  const { login, user } = useAuth();
+  const { login, user, ready } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const next = safeNext(params.get('next'), admin ? '/admin' : '/');
@@ -69,15 +31,18 @@ export function Login({ admin = false }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  if (user && (!admin || user.role === 'admin')) return <Navigate to={next} replace />;
+  if (ready && user && (!admin || user.role === 'admin')) {
+    return <Navigate to={user.role === 'admin' && !admin && next === '/' ? '/admin' : next} replace />;
+  }
 
   async function submit(e) {
     e.preventDefault();
     setError('');
+    if (!form.email.trim() || !form.password) return setError('Isi email dan password dulu ya.');
     setBusy(true);
     try {
-      await login(form.email, form.password, admin ? 'admin' : undefined);
-      navigate(next, { replace: true });
+      const u = await login(form.email, form.password, admin ? 'admin' : undefined);
+      navigate(u.role === 'admin' && !admin && next === '/' ? '/admin' : next, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -103,9 +68,12 @@ export function Login({ admin = false }) {
             onChange={(e) => setForm({ ...form, password: e.target.value })} />
         </Field>
         {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Masuk…' : 'Masuk'}</button>
+        <button type="submit" className="btn-primary w-full" disabled={busy}>{busy ? 'Masuk…' : 'Masuk'}</button>
         {!admin && params.get('next')?.includes('chat=1') && (
           <p className="bg-soft p-3 text-xs text-mute">Login dulu untuk pakai AI Shopping Assistant ya.</p>
+        )}
+        {!admin && params.get('next')?.startsWith('/produk') && (
+          <p className="bg-soft p-3 text-xs text-mute">Login dulu supaya bisa menambahkan produk ke keranjang.</p>
         )}
       </form>
     </AuthShell>
@@ -121,23 +89,41 @@ export function Register() {
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sentTo, setSentTo] = useState('');
 
   if (user) return <Navigate to={next} replace />;
 
   async function submit(e) {
     e.preventDefault();
     setError('');
-    setErrors({});
+    const fe = {};
+    if (form.name.trim().length < 2) fe.name = 'Isi nama kamu (min. 2 huruf).';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) fe.email = 'Format email belum bener.';
+    if (form.password.length < 8) fe.password = 'Password minimal 8 karakter.';
+    setErrors(fe);
+    if (Object.keys(fe).length) return;
     setBusy(true);
     try {
-      await register(form);
-      navigate(next, { replace: true });
+      const res = await register(form);
+      if (res.needsConfirmation) setSentTo(form.email.trim());
+      else navigate(next, { replace: true });
     } catch (err) {
-      setErrors(err.fields || {});
-      if (!err.fields) setError(err.message);
+      setError(err.message);
     } finally {
       setBusy(false);
     }
+  }
+
+  if (sentTo) {
+    return (
+      <AuthShell eyebrow="Akun UrbanStore" title="Cek email kamu">
+        <p className="text-[15px] leading-relaxed">
+          Kami sudah kirim link konfirmasi ke <b>{sentTo}</b>. Klik link itu untuk mengaktifkan akun, lalu login.
+        </p>
+        <p className="mt-3 text-sm text-mute">Nggak ada di inbox? Cek folder spam/promosi.</p>
+        <Link to={`/login?next=${encodeURIComponent(next)}`} className="btn-primary mt-8 w-full">Ke halaman login</Link>
+      </AuthShell>
+    );
   }
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -156,7 +142,7 @@ export function Register() {
           <input id="password" type="password" className={`input ${errors.password ? 'input-error' : ''}`} autoComplete="new-password" value={form.password} onChange={set('password')} />
         </Field>
         {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Mendaftar…' : 'Buat Akun'}</button>
+        <button type="submit" className="btn-primary w-full" disabled={busy}>{busy ? 'Mendaftar…' : 'Buat Akun'}</button>
       </form>
     </AuthShell>
   );
@@ -168,7 +154,17 @@ export function MyOrders() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (user?.role === 'customer') api('/me/orders').then((d) => setOrders(d.orders)).catch((e) => setError(e.message));
+    if (user?.role !== 'customer') return;
+    (async () => {
+      try {
+        await supabase.rpc('expire_overdue_orders');
+        setOrders(await run(supabase.from('orders')
+          .select('code, status, total, created_at, payment_deadline, items:order_items(qty)')
+          .order('created_at', { ascending: false })));
+      } catch (e) {
+        setError(e.message);
+      }
+    })();
   }, [user]);
 
   if (!ready) return null;
@@ -181,19 +177,22 @@ export function MyOrders() {
       <h1 className="mt-3 text-4xl font-extrabold tracking-tight">Pesanan Saya</h1>
       <div className="mt-8">
         {error ? <ErrorState message={error} /> : !orders ? <div className="skeleton h-40" /> : orders.length === 0 ? (
-          <EmptyState title="Belum ada pesanan" text="Pesanan yang kamu buat saat login akan muncul di sini."
+          <EmptyState title="Belum ada pesanan" text="Pesanan yang kamu buat akan muncul di sini."
             action={<Link to="/koleksi" className="btn-primary">Mulai Belanja</Link>} />
         ) : (
           <ul className="divide-y divide-line border-y border-line">
             {orders.map((o) => (
               <li key={o.code}>
-                <Link to={`/pesanan/${o.code}?t=${o.token}`} className="flex flex-wrap items-center justify-between gap-3 py-5 hover:bg-soft sm:px-3">
+                <Link to={`/pesanan/${o.code}`} className="flex flex-wrap items-center justify-between gap-3 py-5 hover:bg-soft sm:px-3">
                   <div>
                     <p className="font-semibold">#{o.code}</p>
-                    <p className="text-sm text-mute">{formatDate(o.createdAt)} · {o.itemCount} item</p>
+                    <p className="text-sm text-mute">
+                      {formatDate(o.created_at)} · {o.items.reduce((s, i) => s + i.qty, 0)} item
+                      {o.status === 'menunggu_pembayaran' && <> · <span className="text-danger">bayar sebelum {formatDate(o.payment_deadline)}</span></>}
+                    </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <StatusBadge status={o.status} label={o.statusLabel} />
+                    <StatusBadge status={o.status} label={ORDER_STATUS[o.status]} />
                     <span className="font-semibold tabular-nums">{rupiah(o.total)}</span>
                   </div>
                 </Link>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../lib/api.js';
+import { fetchCategories, fetchProducts } from '../lib/catalog.js';
 import { SearchIcon } from '../components/icons.jsx';
 import { EmptyState, ErrorState, ProductCard, ProductGridSkeleton } from '../components/ui.jsx';
 
@@ -32,18 +32,17 @@ export default function Catalog() {
   useEffect(() => setSearch(q), [q]);
 
   useEffect(() => {
-    api('/categories').then((d) => setCategories(d.categories)).catch(() => {});
+    fetchCategories().then(setCategories).catch(() => {});
   }, []);
 
   useEffect(() => {
-    const ctrl = new AbortController();
+    let active = true;
     setProducts(null);
     setError(null);
-    const qs = new URLSearchParams(Object.entries({ gender, category, sort, q }).filter(([, v]) => v));
-    api(`/products?${qs}`, { signal: ctrl.signal })
-      .then((d) => setProducts(d.products))
-      .catch((e) => e.name !== 'AbortError' && setError(e.message));
-    return () => ctrl.abort();
+    fetchProducts({ gender, category, sort, q })
+      .then((list) => active && setProducts(list))
+      .catch((e) => active && setError(e.message));
+    return () => { active = false; };
   }, [gender, category, sort, q, reload]);
 
   // Debounce pencarian supaya tidak request di setiap ketikan

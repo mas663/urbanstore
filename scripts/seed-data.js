@@ -1,4 +1,5 @@
 // Data awal katalog UrbanStore. Admin bisa menambah / mengubah lewat /admin.
+// Stok `stock` dibagi rata ke setiap varian (warna × ukuran) oleh scripts/build-seed-sql.mjs.
 // Gambar adalah ilustrasi lokal (public/products). Admin bisa mengganti dengan URL foto asli.
 
 export const categories = [
@@ -33,13 +34,13 @@ const ALL = ['S', 'M', 'L', 'XL'];
 export const products = [
   {
     name: 'Urban Oversized Heavy Tee', category: 't-shirt', gender: 'unisex',
-    price: 189000, stock: 25, sizes: ALL, colors: ['Hitam'], material: 'Cotton combed 24s heavyweight 220 gsm',
+    price: 189000, stock: 25, sizes: ALL, colors: ['Hitam', 'Off White'], material: 'Cotton combed 24s heavyweight 220 gsm',
     image: '/products/oversized-tee-black.svg', featured: true,
     description: 'Kaos oversized dengan bahan cotton combed heavyweight yang tebal tapi tetap adem. Potongan drop shoulder bikin siluet santai yang gampang dipadukan dengan celana apa pun, dari cargo sampai chino.\n\nCocok buat kuliah, nongkrong, atau sekadar keluar cari kopi.',
   },
   {
     name: 'Essential Boxy Tee', category: 't-shirt', gender: 'unisex',
-    price: 149000, compareAt: 179000, stock: 40, sizes: ALL, colors: ['Putih'], material: 'Cotton combed 30s',
+    price: 149000, compareAt: 179000, stock: 40, sizes: ALL, colors: ['Putih', 'Abu Muda'], material: 'Cotton combed 30s',
     image: '/products/boxy-tee-white.svg', featured: true,
     description: 'Kaos boxy fit warna putih bersih yang jadi fondasi lemari kamu. Bahan cotton combed 30s ringan dan lembut, nyaman dipakai seharian.\n\nTinggal layer dengan kemeja atau jaket, outfit langsung jadi.',
   },
@@ -87,7 +88,7 @@ export const products = [
   },
   {
     name: 'Cargo Pants Olive', category: 'celana', gender: 'unisex',
-    price: 249000, stock: 20, sizes: ALL, colors: ['Olive'], material: 'Cotton twill',
+    price: 249000, stock: 20, sizes: ALL, colors: ['Olive', 'Hitam'], material: 'Cotton twill',
     image: '/products/cargo-pants-olive.svg', featured: true,
     description: 'Celana cargo berbahan cotton twill dengan kantong samping yang fungsional. Potongan straight dan pinggang karet dengan tali, jadi nyaman dipakai seharian.',
   },
@@ -105,7 +106,7 @@ export const products = [
   },
   {
     name: 'Everyday Cap', category: 'topi', gender: 'unisex',
-    price: 99000, stock: 30, sizes: ['All Size'], colors: ['Hitam'], material: 'Cotton twill',
+    price: 99000, stock: 30, sizes: ['All Size'], colors: ['Hitam', 'Krem'], material: 'Cotton twill',
     image: '/products/cap-black.svg',
     description: 'Topi baseball low profile dengan strap belakang yang bisa diatur. Finishing bordir kecil yang subtle.',
   },
