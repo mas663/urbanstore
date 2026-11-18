@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750" role="img" aria-label="tote natural">
+<rect width="600" height="750" fill="#dedcd6"/>
+<g fill="#e8e0cb" color="#e8e0cb" stroke="rgba(0,0,0,.18)" stroke-width="2"><path d="M240,300 Q240,170 300,170 Q360,170 360,300" fill="none" stroke-width="16" stroke="currentColor"/><path d="M185,300 L415,300 L432,630 L168,630 Z"/></g>
+<g fill="rgba(0,0,0,.28)" stroke="rgba(0,0,0,.28)"></g>
+<text x="32" y="718" font-family="Inter,Helvetica,Arial,sans-serif" font-size="13" letter-spacing="3" fill="rgba(0,0,0,.35)">URBANSTORE</text>
+</svg>

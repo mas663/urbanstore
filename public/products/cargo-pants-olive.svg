@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750" role="img" aria-label="cargo pants olive">
+<rect width="600" height="750" fill="#ecebe7"/>
+<g fill="#6a6a48" color="#6a6a48"><path d="M218,150 L382,150 L398,640 L318,640 L300,300 L282,640 L202,640 Z"/></g>
+<g fill="rgba(255,255,255,.22)" stroke="rgba(255,255,255,.22)"><line x1="218" y1="178" x2="382" y2="178" stroke-width="3"/><rect x="208" y="360" width="46" height="80" fill="none" stroke-width="3"/><rect x="346" y="360" width="46" height="80" fill="none" stroke-width="3"/></g>
+<text x="32" y="718" font-family="Inter,Helvetica,Arial,sans-serif" font-size="13" letter-spacing="3" fill="rgba(0,0,0,.35)">URBANSTORE</text>
+</svg>

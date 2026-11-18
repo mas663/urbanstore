@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750" role="img" aria-label="zip hoodie black">
+<rect width="600" height="750" fill="#ecebe7"/>
+<g fill="#1d1d1d" color="#1d1d1d"><path d="M205,170 L255,148 Q300,182 345,148 L395,170 L445,232 L478,560 L425,570 L398,330 L398,600 L202,600 L202,330 L175,570 L122,560 L155,232 Z"/></g>
+<g fill="rgba(255,255,255,.22)" stroke="rgba(255,255,255,.22)"><path d="M240,162 Q300,58 360,162 Q300,198 240,162 Z" opacity=".85"/><line x1="300" y1="178" x2="300" y2="600" stroke-width="3"/><path d="M232,470 L368,470 L384,560 L216,560 Z" fill="none" stroke-width="3"/></g>
+<text x="32" y="718" font-family="Inter,Helvetica,Arial,sans-serif" font-size="13" letter-spacing="3" fill="rgba(0,0,0,.35)">URBANSTORE</text>
+</svg>
