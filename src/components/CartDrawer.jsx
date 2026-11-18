@@ -51,7 +51,7 @@ export default function CartDrawer() {
                       <p className="text-sm font-medium leading-snug">{item.name}</p>
                       <p className="text-sm font-semibold tabular-nums">{rupiah(item.lineTotal)}</p>
                     </div>
-                    <p className="mt-1 text-xs text-mute">Ukuran {item.size} · {rupiah(item.price)}</p>
+                    <p className="mt-1 text-xs text-mute">{item.color} · Size {item.size} · {rupiah(item.price)}</p>
                     {item.issue && <p className="mt-1 text-xs font-medium text-danger">{item.issue}</p>}
                     <div className="mt-auto flex items-center justify-between pt-3">
                       <QtyStepper value={item.qty} max={Math.max(item.stock, 1)} disabled={busy}

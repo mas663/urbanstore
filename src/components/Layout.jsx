@@ -9,7 +9,7 @@ const NAV = [
   { to: '/koleksi', label: 'Semua Koleksi' },
   { to: '/koleksi?gender=pria', label: 'Pria' },
   { to: '/koleksi?gender=wanita', label: 'Wanita' },
-  { to: '/cek-pesanan', label: 'Cek Pesanan' },
+  { to: '/akun/pesanan', label: 'Pesanan Saya' },
 ];
 
 export function Logo({ className = '' }) {
@@ -133,7 +133,6 @@ function Footer() {
         <div>
           <p className="eyebrow mb-4">Bantuan</p>
           <ul className="space-y-2 text-sm">
-            <li><Link to="/cek-pesanan" className="hover:underline">Cek Pesanan</Link></li>
             <li><Link to="/#faq" className="hover:underline">FAQ</Link></li>
             <li><Link to="/akun/pesanan" className="hover:underline">Pesanan Saya</Link></li>
           </ul>

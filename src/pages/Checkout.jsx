@@ -1,59 +1,62 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api.js';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { run, supabase } from '../lib/supabase.js';
+import { BANK, SHIPPING } from '../lib/catalog.js';
 import { rupiah } from '../lib/format.js';
 import { useAuth, useCart, useToast } from '../context/AppContext.jsx';
+import RegionSelect from '../components/RegionSelect.jsx';
 import { EmptyState, Field } from '../components/ui.jsx';
 
 const STEPS = ['Data Pengiriman', 'Pengiriman & Bayar', 'Review'];
-const STEP1_FIELDS = ['name', 'phone', 'email', 'address', 'city', 'postalCode'];
 
-// Validasi di browser = feedback cepat. Server tetap memvalidasi ulang.
+// Validasi di browser = feedback cepat. Fungsi place_order di database tetap memvalidasi ulang.
 function validateStep1(f) {
   const e = {};
   const phone = f.phone.replace(/[\s\-().]/g, '').replace(/^\+?62/, '0');
   if (f.name.trim().length < 2) e.name = 'Isi nama penerima minimal 2 huruf ya.';
   if (!/^08\d{8,12}$/.test(phone)) e.phone = 'Nomor WhatsApp belum valid. Contoh: 081234567890.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim())) e.email = 'Format email belum bener. Contoh: kamu@email.com.';
-  if (f.address.trim().length < 10) e.address = 'Alamat terlalu singkat. Tulis jalan, nomor rumah, RT/RW, dan kecamatan.';
-  if (f.city.trim().length < 2) e.city = 'Isi kota / kabupaten tujuan.';
+  if (!f.region.province) e.province = 'Pilih provinsi.';
+  if (!f.region.city) e.city = 'Pilih kota/kabupaten.';
+  if (!f.region.district) e.district = 'Pilih kecamatan.';
+  if (f.address.trim().length < 10) e.address = 'Alamat terlalu singkat. Tulis jalan, nomor rumah, RT/RW, dan kelurahan.';
   if (!/^\d{5}$/.test(f.postalCode.trim())) e.postalCode = 'Kode pos harus 5 digit angka.';
   return e;
 }
 
 export default function Checkout() {
+  const { user, ready } = useAuth();
   const { cart, refresh, reset, setOpen } = useCart();
-  const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [options, setOptions] = useState(null);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', address: '', city: '', postalCode: '', notes: '', shippingMethod: 'regular',
+    name: '', phone: '', email: '', address: '', postalCode: '', notes: '', shippingMethod: 'regular',
+    region: { provinceId: '', province: '', cityId: '', city: '', districtId: '', district: '' },
   });
 
-  useEffect(() => {
-    refresh();
-    api('/shipping-options').then(setOptions).catch(() => {});
-  }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
-    if (user?.role === 'customer') {
-      setForm((f) => ({ ...f, name: f.name || user.name, email: f.email || user.email }));
-    }
+    if (user) setForm((f) => ({ ...f, name: f.name || user.name, email: f.email || user.email, phone: f.phone || user.phone }));
   }, [user]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [step]);
 
-  const set = (k) => (e) => {
-    setForm((f) => ({ ...f, [k]: e.target.value }));
-    if (errors[k]) setErrors((x) => ({ ...x, [k]: undefined }));
-  };
-
+  if (!ready) return null;
+  if (!user) return <Navigate to="/login?next=/checkout" replace />;
+  if (user.role !== 'customer') {
+    return (
+      <div className="container-x py-20">
+        <EmptyState title="Akun admin tidak bisa checkout" text="Login dengan akun customer untuk belanja."
+          action={<Link to="/admin" className="btn-primary">Ke Dashboard Admin</Link>} />
+      </div>
+    );
+  }
   if (cart.items.length === 0 && !submitting) {
     return (
       <div className="container-x py-20">
@@ -63,8 +66,14 @@ export default function Checkout() {
     );
   }
 
-  const shipping = options?.shipping.find((s) => s.id === form.shippingMethod);
-  const total = cart.subtotal + (shipping?.cost || 0);
+  const shipping = SHIPPING.find((s) => s.id === form.shippingMethod);
+  const total = cart.subtotal + shipping.cost;
+  const r = form.region;
+
+  const set = (k) => (e) => {
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+    if (errors[k]) setErrors((x) => ({ ...x, [k]: undefined }));
+  };
 
   function next() {
     if (step === 0) {
@@ -78,20 +87,23 @@ export default function Checkout() {
   async function placeOrder() {
     setSubmitting(true);
     try {
-      const { code, token } = await api('/orders', { method: 'POST', body: form });
+      const result = await run(supabase.rpc('place_order', {
+        p_name: form.name, p_phone: form.phone, p_email: form.email,
+        p_province: r.province, p_city: r.city, p_district: r.district,
+        p_address: form.address, p_postal_code: form.postalCode.trim(), p_notes: form.notes,
+        p_shipping: form.shippingMethod,
+      }));
       reset();
-      navigate(`/pesanan/${code}?t=${token}&baru=1`, { replace: true });
+      navigate(`/pesanan/${result.code}?baru=1`, { replace: true });
     } catch (err) {
       setSubmitting(false);
-      if (err.fields && Object.keys(err.fields).length) {
-        setErrors(err.fields);
-        setStep(Object.keys(err.fields).some((k) => STEP1_FIELDS.includes(k)) ? 0 : 1);
-      }
-      if (err.status === 409) {
+      toast(err.message, 'error');
+      if (/stok|keranjang|tidak dijual/i.test(err.message)) {
         await refresh();
         setOpen(true);
+      } else if (/nama|whatsapp|email|provinsi|alamat|kode pos/i.test(err.message)) {
+        setStep(0);
       }
-      toast(err.message, 'error');
     }
   }
 
@@ -120,23 +132,31 @@ export default function Checkout() {
               <h2 className="text-xl font-semibold">Kirim ke mana?</h2>
               <Field label="Nama penerima" htmlFor="name" error={errors.name}>{input('name', { autoComplete: 'name' })}</Field>
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Nomor WhatsApp" htmlFor="phone" error={errors.phone} hint="Untuk info pesanan & cek status.">
+                <Field label="Nomor WhatsApp" htmlFor="phone" error={errors.phone} hint="Untuk info pengiriman.">
                   {input('phone', { inputMode: 'tel', autoComplete: 'tel', placeholder: '0812xxxxxxxx' })}
                 </Field>
                 <Field label="Email" htmlFor="email" error={errors.email}>{input('email', { type: 'email', autoComplete: 'email' })}</Field>
               </div>
+              <RegionSelect value={form.region} errors={errors}
+                onChange={(region) => {
+                  setForm((f) => ({ ...f, region }));
+                  setErrors((x) => ({ ...x, province: undefined, city: undefined, district: undefined }));
+                }} />
               <Field label="Alamat lengkap" htmlFor="address" error={errors.address}>
                 <textarea id="address" rows={3} value={form.address} onChange={set('address')}
                   className={`input h-auto py-3 ${errors.address ? 'input-error' : ''}`} autoComplete="street-address"
-                  placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan, kecamatan" />
+                  placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan" />
               </Field>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Kota / Kabupaten" htmlFor="city" error={errors.city}>{input('city', { autoComplete: 'address-level2' })}</Field>
+              <div className="grid gap-5 sm:grid-cols-3">
                 <Field label="Kode pos" htmlFor="postalCode" error={errors.postalCode}>
                   {input('postalCode', { inputMode: 'numeric', maxLength: 5, autoComplete: 'postal-code' })}
                 </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Catatan pengiriman (opsional)" htmlFor="notes">
+                    {input('notes', { placeholder: 'Mis. pagar hitam, titip satpam', maxLength: 300 })}
+                  </Field>
+                </div>
               </div>
-              <Field label="Catatan (opsional)" htmlFor="notes">{input('notes', { placeholder: 'Mis. patokan rumah' })}</Field>
             </section>
           )}
 
@@ -145,7 +165,7 @@ export default function Checkout() {
               <div>
                 <h2 className="text-xl font-semibold">Metode pengiriman</h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup">
-                  {(options?.shipping || []).map((s) => (
+                  {SHIPPING.map((s) => (
                     <label key={s.id} className={`cursor-pointer border p-4 transition-colors ${form.shippingMethod === s.id ? 'border-ink bg-soft' : 'border-line hover:border-ink'}`}>
                       <input type="radio" name="shipping" value={s.id} checked={form.shippingMethod === s.id}
                         onChange={set('shippingMethod')} className="sr-only" />
@@ -159,17 +179,16 @@ export default function Checkout() {
                     </label>
                   ))}
                 </div>
-                {errors.shippingMethod && <p className="mt-2 text-sm text-danger">{errors.shippingMethod}</p>}
               </div>
               <div>
                 <h2 className="text-xl font-semibold">Metode pembayaran</h2>
                 <div className="mt-4 border border-ink bg-soft p-4">
-                  <p className="font-semibold">Transfer Bank (Manual)</p>
+                  <p className="font-semibold">Transfer Bank {BANK.name} (Manual)</p>
                   <p className="mt-1 text-sm text-mute">
-                    Nomor rekening {options?.bank.name} muncul di invoice setelah order dibuat. Admin memverifikasi pembayaran kamu secara manual.
+                    Setelah order dibuat, kamu punya waktu <b className="text-ink">1 jam</b> untuk transfer dan upload bukti transfer.
+                    Lewat dari itu, pesanan dibatalkan otomatis.
                   </p>
                 </div>
-                <p className="mt-3 text-xs text-mute">QRIS & payment gateway otomatis menyusul di versi berikutnya.</p>
               </div>
             </section>
           )}
@@ -183,15 +202,16 @@ export default function Checkout() {
                     <button className="text-xs underline" onClick={() => setStep(0)}>Ubah</button></div>
                   <p className="mt-2 font-semibold">{form.name}</p>
                   <p className="text-mute">{form.phone} · {form.email}</p>
-                  <p className="mt-2">{form.address}, {form.city} {form.postalCode}</p>
+                  <p className="mt-2">{form.address}</p>
+                  <p>{r.district}, {r.city}, {r.province} {form.postalCode}</p>
                   {form.notes && <p className="mt-1 text-mute">Catatan: {form.notes}</p>}
                 </div>
                 <div className="bg-paper p-4 text-sm">
                   <div className="flex justify-between"><p className="eyebrow">Pengiriman & bayar</p>
                     <button className="text-xs underline" onClick={() => setStep(1)}>Ubah</button></div>
-                  <p className="mt-2 font-semibold">{shipping?.label}</p>
-                  <p className="text-mute">{shipping?.eta}</p>
-                  <p className="mt-2">Transfer Bank {options?.bank.name}</p>
+                  <p className="mt-2 font-semibold">{shipping.label}</p>
+                  <p className="text-mute">{shipping.eta}</p>
+                  <p className="mt-2">Transfer Bank {BANK.name} · batas bayar 1 jam</p>
                 </div>
               </div>
             </section>
@@ -203,7 +223,7 @@ export default function Checkout() {
               <button className="btn-primary flex-1 sm:flex-none sm:px-10" onClick={next}>Lanjut</button>
             ) : (
               <button className="btn-primary flex-1 sm:flex-none sm:px-10" onClick={placeOrder} disabled={submitting || cart.hasIssues}>
-                {submitting ? 'Memproses pesanan…' : `Place Order · ${rupiah(total)}`}
+                {submitting ? 'Memproses pesanan…' : `Checkout · ${rupiah(total)}`}
               </button>
             )}
           </div>
@@ -218,7 +238,7 @@ export default function Checkout() {
                   <img src={i.imageUrl} alt="" className="h-16 w-13 bg-soft object-cover" />
                   <div className="flex-1 text-sm">
                     <p className="font-medium leading-snug">{i.name}</p>
-                    <p className="text-xs text-mute">Size {i.size} · {i.qty} × {rupiah(i.price)}</p>
+                    <p className="text-xs text-mute">{i.color} · Size {i.size} · {i.qty} × {rupiah(i.price)}</p>
                     {i.issue && <p className="text-xs text-danger">{i.issue}</p>}
                   </div>
                   <p className="text-sm font-medium tabular-nums">{rupiah(i.lineTotal)}</p>
@@ -227,7 +247,7 @@ export default function Checkout() {
             </ul>
             <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
               <div className="flex justify-between"><dt className="text-mute">Subtotal</dt><dd className="tabular-nums">{rupiah(cart.subtotal)}</dd></div>
-              <div className="flex justify-between"><dt className="text-mute">Ongkir ({shipping?.label || '-'})</dt><dd className="tabular-nums">{rupiah(shipping?.cost)}</dd></div>
+              <div className="flex justify-between"><dt className="text-mute">Ongkir ({shipping.label})</dt><dd className="tabular-nums">{rupiah(shipping.cost)}</dd></div>
               <div className="flex justify-between border-t border-ink pt-3 text-base font-semibold">
                 <dt>Total</dt><dd className="tabular-nums">{rupiah(total)}</dd>
               </div>

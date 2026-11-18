@@ -1,38 +1,70 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { api } from '../lib/api.js';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { fetchProductBySlug, fetchRelated, fetchSizeCharts } from '../lib/catalog.js';
 import { discountPercent, GENDER_LABEL } from '../lib/format.js';
-import { useCart, useToast } from '../context/AppContext.jsx';
+import { useAuth, useCart, useToast } from '../context/AppContext.jsx';
 import SizeGuide from '../components/SizeGuide.jsx';
 import { RulerIcon } from '../components/icons.jsx';
 import { ErrorState, Price, ProductCard, QtyStepper } from '../components/ui.jsx';
 
 export default function ProductDetail() {
   const { slug } = useParams();
-  const [data, setData] = useState(null);
+  const [product, setProduct] = useState(null);
+  const [sizeChart, setSizeChart] = useState([]);
+  const [related, setRelated] = useState([]);
   const [error, setError] = useState(null);
+  const [color, setColor] = useState('');
   const [size, setSize] = useState('');
   const [qty, setQty] = useState(1);
-  const [sizeError, setSizeError] = useState('');
+  const [pickError, setPickError] = useState('');
   const [showGuide, setShowGuide] = useState(false);
   const { add, busy, setOpen } = useCart();
+  const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    setData(null);
+    let active = true;
+    setProduct(null);
     setError(null);
     setSize('');
     setQty(1);
-    setSizeError('');
-    api(`/products/${slug}`)
-      .then((d) => {
-        setData(d);
-        if (d.product.sizes.length === 1) setSize(d.product.sizes[0]);
-        document.title = `${d.product.name} — UrbanStore`;
-      })
-      .catch((e) => setError(e));
-    return () => { document.title = 'UrbanStore — Find Your Everyday Style'; };
+    setPickError('');
+    (async () => {
+      try {
+        const p = await fetchProductBySlug(slug);
+        if (!active) return;
+        if (!p) throw new Error('Produk tidak ditemukan atau sudah tidak dijual.');
+        setProduct(p);
+        // Pilih otomatis warna pertama yang masih ada stok
+        setColor(p.colors.find((c) => p.variants.some((v) => v.color === c && v.stock > 0)) || p.colors[0] || '');
+        if (p.sizes.length === 1) setSize(p.sizes[0]);
+        document.title = `${p.name} — UrbanStore`;
+        const [charts, rel] = await Promise.all([fetchSizeCharts(), fetchRelated(p)]);
+        if (!active) return;
+        setSizeChart(charts[p.category.sizeType] || []);
+        setRelated(rel);
+      } catch (e) {
+        if (active) setError(e);
+      }
+    })();
+    return () => {
+      active = false;
+      document.title = 'UrbanStore — Find Your Everyday Style';
+    };
   }, [slug]);
+
+  const variant = useMemo(
+    () => product?.variants.find((v) => v.color === color && v.size === size) || null,
+    [product, color, size],
+  );
+  const stockFor = (c, s) => product?.variants.find((v) => v.color === c && v.size === s)?.stock ?? 0;
+  const colorHasStock = (c) => product?.variants.some((v) => v.color === c && v.stock > 0);
+
+  useEffect(() => {
+    if (variant && qty > variant.stock) setQty(Math.max(1, variant.stock));
+  }, [variant, qty]);
 
   if (error) {
     return (
@@ -42,7 +74,7 @@ export default function ProductDetail() {
       </div>
     );
   }
-  if (!data) {
+  if (!product) {
     return (
       <div className="container-x grid gap-10 py-10 lg:grid-cols-2">
         <div className="skeleton aspect-[4/5]" />
@@ -51,20 +83,34 @@ export default function ProductDetail() {
     );
   }
 
-  const { product, sizeChart, related } = data;
   const off = discountPercent(product.price, product.compareAtPrice);
 
   async function handleAdd() {
-    if (!size) {
-      setSizeError('Pilih ukuran dulu ya.');
+    if (!color) return setPickError('Pilih warna dulu ya.');
+    if (!size) return setPickError('Pilih ukuran dulu ya.');
+    if (!variant || variant.stock === 0) return setPickError('Varian ini lagi habis. Coba warna atau ukuran lain.');
+    if (!user) {
+      navigate(`/login?next=${encodeURIComponent(location.pathname)}`);
       return;
     }
-    const ok = await add(product.id, size, qty);
+    if (user.role !== 'customer') {
+      toast('Akun admin tidak bisa belanja. Pakai akun customer ya.', 'error');
+      return;
+    }
+    const ok = await add(variant.id, qty);
     if (ok) {
-      toast(`${product.name} (${size}) masuk keranjang`);
+      toast(`${product.name} (${color}, ${size}) masuk keranjang`);
       setOpen(true);
     }
   }
+
+  const stockText = !product.inStock
+    ? 'Produk ini lagi habis. Cek produk lain di bawah ya.'
+    : variant
+      ? variant.stock === 0
+        ? 'Varian ini habis. Coba ukuran atau warna lain.'
+        : variant.stock <= 3 ? `Buruan, stok varian ini tinggal ${variant.stock} pcs.` : `Stok tersedia · ${variant.stock} pcs`
+      : 'Pilih warna & ukuran untuk melihat stok.';
 
   return (
     <div className="container-x py-8 lg:py-12">
@@ -89,15 +135,33 @@ export default function ProductDetail() {
             <p className="eyebrow">{product.category.name} · {GENDER_LABEL[product.gender]}</p>
             <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{product.name}</h1>
             <Price price={product.price} compareAt={product.compareAtPrice} className="mt-4 text-xl" />
+            <p className="mt-4 text-sm text-mute">Bahan: <span className="text-ink">{product.material || '-'}</span></p>
 
-            <dl className="mt-8 grid grid-cols-2 gap-px border border-line bg-line text-sm">
-              <div className="bg-paper p-3"><dt className="text-xs text-mute">Warna</dt><dd className="mt-1 font-medium">{product.colors.join(', ') || '-'}</dd></div>
-              <div className="bg-paper p-3"><dt className="text-xs text-mute">Bahan</dt><dd className="mt-1 font-medium">{product.material || '-'}</dd></div>
-            </dl>
-
+            {/* Varian: warna */}
             <div className="mt-8">
+              <p className="label">Warna{color && <span className="ml-2 font-normal normal-case tracking-normal text-mute">{color}</span>}</p>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Warna">
+                {product.colors.map((c) => (
+                  <button key={c} role="radio" aria-checked={color === c}
+                    onClick={() => {
+                      setColor(c);
+                      setPickError('');
+                      // Ukuran yang dipilih tidak tersedia/habis di warna baru → reset
+                      if (size && stockFor(c, size) === 0 && product.sizes.length > 1) setSize('');
+                    }}
+                    className={`h-11 border px-4 text-sm font-medium transition-colors ${
+                      color === c ? 'border-ink bg-ink text-paper' : 'border-line hover:border-ink'
+                    } ${colorHasStock(c) ? '' : 'text-mute line-through'}`}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Varian: ukuran (stok per warna) */}
+            <div className="mt-6">
               <div className="flex items-center justify-between">
-                <p className="label !mb-0">Pilih ukuran</p>
+                <p className="label !mb-0">Ukuran</p>
                 {product.category.sizeType !== 'onesize' && (
                   <button className="inline-flex items-center gap-1.5 text-xs font-semibold underline underline-offset-4"
                     onClick={() => setShowGuide((v) => !v)} aria-expanded={showGuide}>
@@ -106,17 +170,22 @@ export default function ProductDetail() {
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Ukuran">
-                {product.sizes.map((s) => (
-                  <button key={s} role="radio" aria-checked={size === s} disabled={!product.inStock}
-                    onClick={() => { setSize(s); setSizeError(''); }}
-                    className={`h-12 min-w-14 border px-4 text-sm font-semibold transition-colors disabled:opacity-40 ${
-                      size === s ? 'border-ink bg-ink text-paper' : 'border-line hover:border-ink'
-                    }`}>
-                    {s}
-                  </button>
-                ))}
+                {product.sizes.map((s) => {
+                  const st = stockFor(color, s);
+                  const exists = product.variants.some((v) => v.color === color && v.size === s);
+                  return (
+                    <button key={s} role="radio" aria-checked={size === s} disabled={!exists || st === 0}
+                      onClick={() => { setSize(s); setPickError(''); }}
+                      title={!exists ? 'Tidak tersedia untuk warna ini' : st === 0 ? 'Habis' : `Stok ${st}`}
+                      className={`relative h-12 min-w-14 border px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:text-mute/60 disabled:line-through ${
+                        size === s ? 'border-ink bg-ink text-paper' : 'border-line hover:border-ink'
+                      }`}>
+                      {s}
+                    </button>
+                  );
+                })}
               </div>
-              {sizeError && <p className="mt-2 text-sm text-danger" role="alert">{sizeError}</p>}
+              {pickError && <p className="mt-2 text-sm text-danger" role="alert">{pickError}</p>}
               {showGuide && (
                 <div className="mt-5 border border-line p-4">
                   <SizeGuide chart={sizeChart} sizeType={product.category.sizeType} highlight={size} />
@@ -125,16 +194,12 @@ export default function ProductDetail() {
             </div>
 
             <div className="mt-8 flex items-center gap-3">
-              <QtyStepper value={qty} max={Math.max(product.stock, 1)} onChange={setQty} disabled={!product.inStock} />
+              <QtyStepper value={qty} max={Math.max(variant?.stock || 1, 1)} onChange={setQty} disabled={!product.inStock} />
               <button className="btn-primary flex-1" onClick={handleAdd} disabled={!product.inStock || busy}>
-                {product.inStock ? (busy ? 'Menambahkan…' : 'Add to Cart') : 'Stok Habis'}
+                {!product.inStock ? 'Stok Habis' : busy ? 'Menambahkan…' : user ? 'Add to Cart' : 'Login untuk Belanja'}
               </button>
             </div>
-            <p className="mt-3 text-xs text-mute">
-              {product.inStock
-                ? product.stock <= 5 ? `Buruan, stok tinggal ${product.stock} pcs.` : `Stok tersedia · ${product.stock} pcs`
-                : 'Produk ini lagi habis. Cek produk lain di bawah ya.'}
-            </p>
+            <p className="mt-3 text-xs text-mute" aria-live="polite">{stockText}</p>
 
             {product.description && (
               <div className="mt-10 border-t border-line pt-6">
