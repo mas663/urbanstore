@@ -25,7 +25,8 @@ export const config = {
     geminiModel: env.GEMINI_MODEL || 'gemini-3-flash-preview',
     geminiBaseUrl: (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, ''),
     // Model cadangan saat model utama overload / rate limit (429/503)
-    fallbackModel: env.GEMINI_FALLBACK_MODEL ?? env.AI_FALLBACK_MODEL ?? 'gemini-3.5-flash-lite',
+    // Default cadangan hanya untuk provider Gemini (9Router memakai nama model sendiri → isi AI_FALLBACK_MODEL)
+    fallbackModel: env.GEMINI_FALLBACK_MODEL ?? env.AI_FALLBACK_MODEL ?? ((env.AI_PROVIDER || 'gemini').toLowerCase() === 'gemini' ? 'gemini-3.5-flash-lite' : ''),
     baseUrl: (env.AI_BASE_URL || '').replace(/\/+$/, ''),
     apiKeys: {
       customer: env.AI_API_KEY_CUSTOMER || env.AI_API_KEY || '',
