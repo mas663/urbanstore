@@ -22,10 +22,10 @@ export const config = {
       customer: env.GEMINI_API_KEY_CUSTOMER || env.GEMINI_API_KEY || '',
       admin: env.GEMINI_API_KEY_ADMIN || env.GEMINI_API_KEY || '',
     },
-    geminiModel: env.GEMINI_MODEL || 'gemini-3.8-flash',
+    geminiModel: env.GEMINI_MODEL || 'gemini-3-flash-preview',
     geminiBaseUrl: (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, ''),
     // Model cadangan saat model utama overload / rate limit (429/503)
-    fallbackModel: env.GEMINI_FALLBACK_MODEL ?? env.AI_FALLBACK_MODEL ?? '',
+    fallbackModel: env.GEMINI_FALLBACK_MODEL ?? env.AI_FALLBACK_MODEL ?? 'gemini-3.5-flash-lite',
     baseUrl: (env.AI_BASE_URL || '').replace(/\/+$/, ''),
     apiKeys: {
       customer: env.AI_API_KEY_CUSTOMER || env.AI_API_KEY || '',

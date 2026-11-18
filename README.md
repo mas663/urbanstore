@@ -128,3 +128,9 @@ tests/                  tes skema (PGlite) & AI
 - Foto produk contoh berupa **ilustrasi SVG**. Ganti lewat Admin → Edit Produk → Upload foto.
 - Data wilayah dari [emsifa/api-wilayah-indonesia](https://github.com/emsifa/api-wilayah-indonesia) (MIT, data Kemendagri). Data ini memakai pembagian 34 provinsi, sebelum pemekaran Papua 2022.
 - Di luar scope saat ini: payment gateway/QRIS otomatis, ongkir per kota, multi-seller.
+
+## Jika fitur AI terasa lambat atau gagal
+
+- Ketersediaan model Gemini berubah-ubah (akun gratis punya kuota & beban per model). Server mencatat model yang sedang gagal (503/429/timeout/404) dan melewatinya 3 menit, lalu memakai `GEMINI_FALLBACK_MODEL`.
+- Model Gemini 3 "berpikir" dulu dan token berpikir ikut menghabiskan `maxOutputTokens` (jawaban terpotong + lambat). Karena itu server mengirim `thinkingLevel` (`minimal` untuk chat & deskripsi, `low` untuk analisis).
+- Cara memilih model: ukur kecepatan beberapa model dengan key kamu sendiri (lihat contoh di riwayat commit "perf: speed up AI"), lalu isi `GEMINI_MODEL` di `.env` dan restart.

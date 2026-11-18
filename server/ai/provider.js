@@ -26,7 +26,7 @@ export class AiError extends Error {
 }
 
 // Error yang layak dicoba ulang ke model cadangan
-const RETRYABLE = new Set([429, 500, 503, 'timeout']);
+const RETRYABLE = new Set([404, 429, 500, 503, 'timeout']); // 404 = model dihentikan → pakai cadangan
 
 export function aiStatus(scope = 'customer') {
   const ai = config.ai;
@@ -60,7 +60,11 @@ function friendlyError(status, detail) {
   return new AiError(502, 'Layanan AI lagi gangguan. Coba lagi beberapa saat lagi.', status);
 }
 
-function buildRequest({ system, messages, temperature = 0.7, maxTokens = 1024, stream, model, scope }) {
+// Gemini 3: token "berpikir" ikut dihitung dalam maxOutputTokens → jawaban bisa terpotong & lambat.
+// Level minimal/low membuat respons cepat dan utuh. Model yang menolak pengaturan ini dicatat lalu dicoba tanpa pengaturan.
+const noThinkingConfig = new Set();
+
+function buildRequest({ system, messages, temperature = 0.7, maxTokens = 1024, stream, model, scope, thinking = 'minimal' }) {
   const ai = config.ai;
   const key = keyFor(scope);
   if (ai.provider === 'openai_compatible') {
@@ -86,7 +90,11 @@ function buildRequest({ system, messages, temperature = 0.7, maxTokens = 1024, s
     body: {
       systemInstruction: { parts: [{ text: system }] },
       contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-      generationConfig: { temperature, maxOutputTokens: maxTokens },
+      generationConfig: {
+        temperature,
+        maxOutputTokens: maxTokens,
+        ...(thinking && !noThinkingConfig.has(model) ? { thinkingConfig: { thinkingLevel: thinking } } : {}),
+      },
     },
   };
 }
@@ -105,35 +113,51 @@ function extractText(json) {
  * Panggil AI. Jika onDelta diberikan → streaming, potongan teks dikirim bertahap.
  * Timeout: 15 detik menunggu respons pertama (rekomendasi Skill Audit Sesi 5).
  */
+// ── Kesehatan model (circuit breaker sederhana) ─────────────────────────────
+// Model yang baru saja overload/timeout dilewati beberapa menit, jadi request berikutnya
+// langsung memakai model cadangan dan tidak menunggu model yang bermasalah lagi.
+const COOLDOWN_MS = 3 * 60 * 1000;
+const FAST_FAIL_MS = 8000; // batas tunggu respons pertama model utama jika ada cadangan
+const unhealthyUntil = new Map();
+export const resetModelHealth = () => unhealthyUntil.clear();
+const isUnhealthy = (model) => (unhealthyUntil.get(model) || 0) > Date.now();
+
 export async function callAi(opts) {
   if (!SCOPES.includes(opts.scope)) throw new Error('callAi: scope wajib "customer" atau "admin"');
   assertConfigured(opts.scope);
   const ai = config.ai;
   const primary = ai.provider === 'openai_compatible' ? ai.model : ai.geminiModel;
-  const models = [primary, ai.fallbackModel].filter((m, i, arr) => m && arr.indexOf(m) === i);
+  let models = [primary, ai.fallbackModel].filter((m, i, arr) => m && arr.indexOf(m) === i);
+  // Model utama sedang bermasalah → coba cadangan dulu, model utama jadi pilihan terakhir
+  if (models.length > 1 && isUnhealthy(models[0])) models = [...models.slice(1), models[0]];
+
   let lastErr;
-  for (const model of models) {
+  for (const [i, model] of models.entries()) {
+    const hasNext = i < models.length - 1;
     try {
-      return await callOnce({ ...opts, model });
+      const result = await callOnce({ ...opts, model, timeoutMs: hasNext ? FAST_FAIL_MS : config.ai.timeoutMs });
+      unhealthyUntil.delete(model);
+      return result;
     } catch (err) {
       lastErr = err;
       // Fallback hanya jika belum ada teks yang terkirim ke user & errornya sementara (overload / limit / timeout)
       if (!(err instanceof AiError) || !RETRYABLE.has(err.upstream) || err.streamed) throw err;
-      if (model !== models.at(-1)) console.warn(`[ai] ${model} gagal (${err.upstream}), mencoba model cadangan ${models.at(-1)}`);
+      unhealthyUntil.set(model, Date.now() + COOLDOWN_MS);
+      if (hasNext) console.warn(`[ai] ${model} gagal (${err.upstream}), mencoba ${models[i + 1]}. ${model} dilewati ${COOLDOWN_MS / 60000} menit.`);
     }
   }
   throw lastErr;
 }
 
-async function callOnce({ system, messages, temperature, maxTokens, onDelta, signal, model, scope }) {
+async function callOnce({ system, messages, temperature, maxTokens, onDelta, signal, model, scope, timeoutMs, thinking }) {
   const stream = typeof onDelta === 'function';
-  const req = buildRequest({ system, messages, temperature, maxTokens, stream, model, scope });
+  const req = buildRequest({ system, messages, temperature, maxTokens, stream, model, scope, thinking });
 
   const ctrl = new AbortController();
   const abort = () => ctrl.abort();
   signal?.addEventListener('abort', abort);
   let timedOut = false;
-  let timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, config.ai.timeoutMs);
+  let timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, timeoutMs ?? config.ai.timeoutMs);
 
   try {
     let res;
@@ -145,7 +169,17 @@ async function callOnce({ system, messages, temperature, maxTokens, onDelta, sig
       console.error('[ai] network error:', err.message);
       throw new AiError(502, 'Server tidak bisa terhubung ke layanan AI.');
     }
-    if (!res.ok) throw friendlyError(res.status, await res.text().catch(() => ''));
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      if (res.status === 400 && /thinking/i.test(detail) && config.ai.provider === 'gemini' && !noThinkingConfig.has(model)) {
+        noThinkingConfig.add(model);
+        console.warn(`[ai] ${model} menolak thinkingConfig, mengulang tanpa pengaturan itu`);
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', abort);
+        return callOnce({ system, messages, temperature, maxTokens, onDelta, signal, model, scope, timeoutMs, thinking });
+      }
+      throw friendlyError(res.status, detail);
+    }
 
     if (!stream) {
       const json = await res.json();

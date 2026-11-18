@@ -84,7 +84,8 @@ export function aiRoutes(data) {
         system,
         messages: [...history, { role: 'user', content: message }],
         temperature: 0.6,
-        maxTokens: 700,
+        maxTokens: 1000,
+        thinking: 'minimal', // jawaban chat cepat
         signal: ctrl.signal,
         onDelta: (text) => send({ type: 'delta', text }),
       });
@@ -129,7 +130,8 @@ export function aiRoutes(data) {
       system: describeSystemPrompt(),
       messages: [{ role: 'user', content: describeUserPrompt(product) }],
       temperature: 0.8,
-      maxTokens: 600,
+      maxTokens: 900,
+      thinking: 'minimal',
     });
     res.json({ description: cleanText(raw).replace(/^["“]|["”]$/g, '').slice(0, 3000) });
   }));
@@ -150,7 +152,8 @@ export function aiRoutes(data) {
         system: analyzeSystemPrompt(),
         messages: [{ role: 'user', content: `METRIK TOKO (mata uang Rupiah):\n${JSON.stringify(metrics)}` }],
         temperature: 0.5,
-        maxTokens: 1400,
+        maxTokens: 2500,
+        thinking: 'low', // analisis butuh sedikit penalaran, tapi tetap cepat
         signal: ctrl.signal,
         onDelta: (text) => send({ type: 'delta', text }),
       });

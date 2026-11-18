@@ -4,6 +4,7 @@ import http from 'node:http';
 import { config } from '../server/config.js';
 import { createApp } from '../server/app.js';
 import { HttpError } from '../server/lib/http.js';
+import { resetModelHealth } from '../server/ai/provider.js';
 
 /* ── Server AI tiruan: meniru streaming Gemini (SSE) & OpenAI-compatible (9Router) ── */
 let fake, fakeBase, lastBody;
@@ -63,7 +64,11 @@ before(async () => {
     req.on('data', (c) => (raw += c));
     req.on('end', () => {
       lastBody = { url: req.url, headers: req.headers, json: JSON.parse(raw || '{}') };
+      if (req.url.includes('gemini-test')) primaryCalls += 1;
       if (fakeMode === 'fail') return res.writeHead(429).end('{"error":"rate limited"}');
+      if (fakeMode === 'reject-thinking' && lastBody.json.generationConfig?.thinkingConfig) {
+        return res.writeHead(400).end('{"error":{"message":"Thinking level is not supported for this model"}}');
+      }
       if (fakeMode === 'fail-primary' && req.url.includes('gemini-test')) return res.writeHead(503).end('{"error":{"status":"UNAVAILABLE"}}');
       const isGemini = req.url.includes('/models/');
       if (req.url.includes(':generateContent') || (!isGemini && !lastBody.json.stream)) {
@@ -95,7 +100,10 @@ function useProvider(provider) {
     : { provider: 'openai_compatible', baseUrl: `${fakeBase}/v1`, apiKeys: { customer: 'router-customer', admin: 'router-admin' }, model: 'gemini/gemini-test' });
 }
 
+let primaryCalls = 0;
 beforeEach(() => {
+  resetModelHealth();
+  primaryCalls = 0;
   fakeMode = 'ok';
   quotas.clear();
   metrics = { orders: { total: 0, cancelled: 0 } };
@@ -183,6 +191,43 @@ test('fallback model: model utama 503 → otomatis pakai model cadangan', async 
   const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
   assert.equal(r.events.at(-1).type, 'done');
   assert.match(lastBody.url, /gemini-lite/);
+});
+
+test('thinking: chat & deskripsi memakai level minimal, analisis low (jawaban cepat & tidak terpotong)', async () => {
+  useProvider('gemini');
+  await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(lastBody.json.generationConfig.thinkingConfig.thinkingLevel, 'minimal');
+  assert.ok(lastBody.json.generationConfig.maxOutputTokens >= 1000);
+  await call('POST', '/api/admin/describe', { token: 'admin-token', body: { name: 'Relaxed Knit Polo', category: 'Kemeja', material: 'Cotton knit' } });
+  assert.equal(lastBody.json.generationConfig.thinkingConfig.thinkingLevel, 'minimal');
+  metrics = { orders: { total: 1, cancelled: 0 } };
+  await call('POST', '/api/admin/analyze', { token: 'admin-token' });
+  assert.equal(lastBody.json.generationConfig.thinkingConfig.thinkingLevel, 'low');
+});
+
+test('thinking: model yang menolak thinkingConfig otomatis diulang tanpa pengaturan itu', async () => {
+  useProvider('gemini');
+  config.ai.geminiModel = 'gemini-no-thinking';
+  fakeMode = 'reject-thinking';
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(r.events.at(-1).type, 'done');
+  assert.equal(lastBody.json.generationConfig.thinkingConfig, undefined);
+});
+
+test('circuit breaker: model utama yang gagal dilewati, request berikutnya langsung ke cadangan', async () => {
+  useProvider('gemini');
+  config.ai.fallbackModel = 'gemini-lite';
+  fakeMode = 'fail-primary';
+  assert.equal((await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'satu' } })).events.at(-1).type, 'done');
+  assert.equal(primaryCalls, 1); // dicoba sekali lalu gagal
+  assert.equal((await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'dua' } })).events.at(-1).type, 'done');
+  assert.equal(primaryCalls, 1); // tidak dicoba lagi (dilewati selama cooldown)
+  assert.match(lastBody.url, /gemini-lite/);
+  // Setelah model utama pulih & cooldown dihapus, dipakai lagi
+  resetModelHealth();
+  fakeMode = 'ok';
+  await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'tiga' } });
+  assert.equal(primaryCalls, 2);
 });
 
 test('describe: hanya admin, wajib data minimal, key admin, hasil teks bersih tanpa Markdown', async () => {
