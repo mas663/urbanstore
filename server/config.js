@@ -1,4 +1,4 @@
-// Semua konfigurasi dibaca dari environment variables (.env). Tidak ada secret di kode.
+// Konfigurasi server AI (dibaca dari environment variables / .env). Tidak ada secret di kode.
 const env = process.env;
 
 const int = (v, d) => {
@@ -8,20 +8,11 @@ const int = (v, d) => {
 
 export const config = {
   port: int(env.PORT, 3001),
-  isProd: env.NODE_ENV === 'production',
-  databasePath: env.DATABASE_PATH || './data/urbanstore.db',
-  admin: {
-    email: (env.ADMIN_EMAIL || 'admin@urbanstore.id').toLowerCase(),
-    password: env.ADMIN_PASSWORD || '',
-  },
-  bank: {
-    name: env.STORE_BANK_NAME || 'BCA',
-    account: env.STORE_BANK_ACCOUNT || '123-456-7890',
-    holder: env.STORE_BANK_HOLDER || 'PT UrbanStore Fashion Indonesia',
-  },
-  shipping: {
-    regular: { label: 'Regular Shipping', eta: '2–4 hari kerja', cost: 15000 },
-    express: { label: 'Express Next Day', eta: 'Besok sampai', cost: 30000 },
+  supabase: {
+    url: (env.SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/+$/, ''),
+    publishableKey: env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
+    // Hanya di server: untuk fungsi kuota chat (role service_role). JANGAN beri prefix VITE_.
+    secretKey: env.SUPABASE_SECRET_KEY || '',
   },
   ai: {
     provider: (env.AI_PROVIDER || 'gemini').toLowerCase(),
@@ -32,9 +23,9 @@ export const config = {
       admin: env.GEMINI_API_KEY_ADMIN || env.GEMINI_API_KEY || '',
     },
     geminiModel: env.GEMINI_MODEL || 'gemini-3.8-flash',
+    geminiBaseUrl: (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, ''),
     // Model cadangan saat model utama overload / rate limit (429/503)
     fallbackModel: env.GEMINI_FALLBACK_MODEL ?? env.AI_FALLBACK_MODEL ?? '',
-    geminiBaseUrl: (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, ''),
     baseUrl: (env.AI_BASE_URL || '').replace(/\/+$/, ''),
     apiKeys: {
       customer: env.AI_API_KEY_CUSTOMER || env.AI_API_KEY || '',
@@ -45,6 +36,6 @@ export const config = {
   },
   chatQuota: {
     limit: int(env.CHAT_QUOTA_LIMIT, 5),
-    windowMs: int(env.CHAT_QUOTA_WINDOW_HOURS, 12) * 60 * 60 * 1000,
+    windowSeconds: int(env.CHAT_QUOTA_WINDOW_HOURS, 12) * 60 * 60,
   },
 };

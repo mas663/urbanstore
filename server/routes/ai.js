@@ -1,107 +1,13 @@
 import { Router } from 'express';
-import { config } from '../config.js';
-import { tx } from '../db.js';
-import { requireRole } from '../lib/auth.js';
 import { asyncHandler, badRequest, HttpError } from '../lib/http.js';
-import { str, toInt } from '../lib/validate.js';
 import { AiError, aiStatus, assertConfigured, callAi, cleanText } from '../ai/provider.js';
 import {
   analyzeSystemPrompt, chatSystemPrompt, compactCatalog, compactSizeCharts, describeSystemPrompt, describeUserPrompt,
 } from '../ai/prompts.js';
-import { loadSizeCharts } from './catalog.js';
-import { PAID_STATUSES } from './admin.js';
 
-/* ── Kuota chat: maks N pesan per customer per jendela 12 jam (dihitung di backend) ── */
-
-export function getQuota(db, userId, now = Date.now()) {
-  const { limit, windowMs } = config.chatQuota;
-  const row = db.prepare('SELECT window_start, used FROM chat_quota WHERE user_id = ?').get(userId);
-  if (!row || now - row.window_start >= windowMs) return { limit, used: 0, remaining: limit, resetAt: null };
-  return { limit, used: row.used, remaining: Math.max(limit - row.used, 0), resetAt: row.window_start + windowMs };
-}
-
-export function consumeQuota(db, userId, now = Date.now()) {
-  const { limit, windowMs } = config.chatQuota;
-  return tx(db, () => {
-    const row = db.prepare('SELECT window_start, used FROM chat_quota WHERE user_id = ?').get(userId);
-    if (!row || now - row.window_start >= windowMs) {
-      db.prepare(`INSERT INTO chat_quota (user_id, window_start, used) VALUES (?, ?, 1)
-                  ON CONFLICT (user_id) DO UPDATE SET window_start = excluded.window_start, used = 1`).run(userId, now);
-      return { ok: true, ...getQuota(db, userId, now) };
-    }
-    if (row.used >= limit) return { ok: false, ...getQuota(db, userId, now) };
-    db.prepare('UPDATE chat_quota SET used = used + 1 WHERE user_id = ?').run(userId);
-    return { ok: true, ...getQuota(db, userId, now) };
-  });
-}
-
-/** Kembalikan kuota jika AI gagal menjawab (supaya tombol Retry tidak menghabiskan kuota). */
-export function refundQuota(db, userId) {
-  db.prepare('UPDATE chat_quota SET used = MAX(used - 1, 0) WHERE user_id = ?').run(userId);
-}
-
-/* ── Agregasi metrik penjualan (dihitung di backend, bukan dikirim mentah ke AI) ── */
-
-export function buildSalesMetrics(db) {
-  const paid = PAID_STATUSES.map(() => '?').join(',');
-  const one = (sql, ...p) => db.prepare(sql).get(...p);
-  const all = (sql, ...p) => db.prepare(sql).all(...p);
-
-  const byStatus = Object.fromEntries(all('SELECT status, COUNT(*) AS n FROM orders GROUP BY status').map((r) => [r.status, r.n]));
-  const totals = one(`
-    SELECT COUNT(*) AS orders,
-      COALESCE(SUM(CASE WHEN status IN (${paid}) THEN total END), 0) AS confirmedRevenue,
-      COALESCE(SUM(CASE WHEN status IN (${paid}) THEN 1 END), 0) AS confirmedOrders,
-      COALESCE(SUM(CASE WHEN status IN ('menunggu_pembayaran','menunggu_verifikasi') THEN total END), 0) AS pendingRevenue
-    FROM orders WHERE status != 'dibatalkan'`, ...PAID_STATUSES, ...PAID_STATUSES); // placeholder dipakai 2×
-  const last30 = one(`
-    SELECT COUNT(*) AS orders, COALESCE(SUM(CASE WHEN status IN (${paid}) THEN total END), 0) AS confirmedRevenue
-    FROM orders WHERE status != 'dibatalkan' AND created_at >= datetime('now', '-30 days')`, ...PAID_STATUSES);
-
-  const itemsBase = `FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.status != 'dibatalkan'`;
-  const topProducts = all(`
-    SELECT oi.product_name AS name, SUM(oi.qty) AS qty, SUM(oi.qty * oi.price_at_purchase) AS revenue
-    ${itemsBase} GROUP BY oi.product_name ORDER BY qty DESC, revenue DESC LIMIT 5`);
-  const byCategory = all(`
-    SELECT COALESCE(c.name, 'Lainnya') AS category, SUM(oi.qty) AS qty, SUM(oi.qty * oi.price_at_purchase) AS revenue
-    FROM order_items oi JOIN orders o ON o.id = oi.order_id
-    LEFT JOIN products p ON p.id = oi.product_id LEFT JOIN categories c ON c.id = p.category_id
-    WHERE o.status != 'dibatalkan' GROUP BY category ORDER BY revenue DESC`);
-  const bySize = all(`SELECT oi.size, SUM(oi.qty) AS qty ${itemsBase} GROUP BY oi.size ORDER BY qty DESC`);
-  const byShipping = all(`SELECT shipping_method AS method, COUNT(*) AS orders FROM orders WHERE status != 'dibatalkan' GROUP BY shipping_method`);
-  const lowStock = all(`SELECT name, stock FROM products WHERE is_active = 1 AND stock <= 5 ORDER BY stock, name LIMIT 8`);
-  const noSales = all(`
-    SELECT p.name, p.stock FROM products p
-    WHERE p.is_active = 1 AND NOT EXISTS (
-      SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.status != 'dibatalkan')
-    ORDER BY p.stock DESC LIMIT 8`);
-  const catalog = one('SELECT COUNT(*) AS activeProducts, ROUND(AVG(price)) AS avgPrice FROM products WHERE is_active = 1');
-
-  return {
-    orders: {
-      total: totals.orders,
-      confirmed: totals.confirmedOrders,
-      cancelled: byStatus.dibatalkan || 0,
-      byStatus,
-    },
-    revenue: {
-      confirmed: totals.confirmedRevenue,
-      pending: totals.pendingRevenue,
-      avgOrderValue: totals.confirmedOrders ? Math.round(totals.confirmedRevenue / totals.confirmedOrders) : 0,
-    },
-    last30Days: last30,
-    topProducts,
-    byCategory,
-    bySize,
-    byShipping,
-    lowStock,
-    noSales,
-    catalog,
-  };
-}
+const str = (v, max = 500) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 /* ── Streaming NDJSON ke browser ── */
-
 function startStream(res) {
   res.status(200).set({
     'Content-Type': 'application/x-ndjson; charset=utf-8',
@@ -112,41 +18,62 @@ function startStream(res) {
   return (obj) => res.write(JSON.stringify(obj) + '\n');
 }
 
-export function aiRoutes(db) {
+const quotaView = (q) => ({ limit: q.limit, used: q.used, remaining: q.remaining, resetAt: q.resetAt ? new Date(q.resetAt).getTime() : null });
+
+/**
+ * Endpoint AI (Sesi 5). `data` = lapisan data Supabase (lihat server/data.js).
+ *   POST /api/chat             → AI Shopping Assistant (customer, kuota 5 pesan / 12 jam)
+ *   POST /api/admin/describe   → AI Generate Deskripsi Produk (admin)
+ *   POST /api/admin/analyze    → AI Analisis Penjualan (admin, streaming)
+ */
+export function aiRoutes(data) {
   const r = Router();
+
+  const auth = (role) => asyncHandler(async (req, _res, next) => {
+    req.user = await data.authenticate(req);
+    if (role && req.user.role !== role) {
+      throw new HttpError(403, role === 'admin' ? 'Khusus Store Admin.' : 'AI Shopping Assistant khusus akun customer.');
+    }
+    next();
+  });
 
   // ?scope=customer | admin — dipakai UI untuk menampilkan status AI per sisi aplikasi
   r.get('/ai/status', (req, res) => res.json(aiStatus(req.query.scope === 'admin' ? 'admin' : 'customer')));
 
-  /* ── 1. AI Shopping Assistant — khusus customer yang login ── */
-  r.get('/chat/quota', requireRole('customer'), (req, res) => {
-    res.json({ quota: getQuota(db, req.user.id), ai: aiStatus('customer') });
-  });
+  /* ── 1. AI Shopping Assistant ── */
+  r.get('/chat/quota', auth('customer'), asyncHandler(async (req, res) => {
+    res.json({ quota: quotaView(await data.quota.get(req.user.id)), ai: aiStatus('customer') });
+  }));
 
-  r.post('/chat', requireRole('customer'), asyncHandler(async (req, res) => {
+  r.post('/chat', auth('customer'), asyncHandler(async (req, res) => {
     const message = str(req.body.message, 500);
     if (!message) throw badRequest('Tulis pertanyaan kamu dulu ya.');
     assertConfigured('customer');
 
-    // Riwayat percakapan sesi ini (maks. 8 pesan terakhir, dipotong supaya hemat token)
+    // Riwayat percakapan sesi ini (maks. 8 pesan terakhir, dipotong supaya hemat token).
+    // Role selain user/assistant dibuang → mencegah prompt injection lewat "system".
     const history = (Array.isArray(req.body.history) ? req.body.history : [])
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
       .slice(-8)
       .map((m) => ({ role: m.role, content: m.content.slice(0, 1200) }));
 
-    const quota = consumeQuota(db, req.user.id);
+    const quota = await data.quota.consume(req.user.id);
     if (!quota.ok) {
-      throw new HttpError(429, 'Kuota chat kamu sudah habis untuk 12 jam ini. Coba lagi nanti ya.', { quota: strip(quota) });
+      throw new HttpError(429, 'Kuota chat kamu sudah habis untuk 12 jam ini. Coba lagi nanti ya.', { quota: quotaView(quota) });
     }
 
-    const products = db.prepare(`
-      SELECT p.*, c.name AS category_name, c.size_type FROM products p JOIN categories c ON c.id = p.category_id
-      WHERE p.is_active = 1 ORDER BY p.id`).all();
-    const system = chatSystemPrompt({
-      catalog: compactCatalog(products),
-      sizeCharts: compactSizeCharts(loadSizeCharts(db)),
-      customerName: req.user.name.split(' ')[0],
-    });
+    let system;
+    try {
+      const [catalog, charts] = await Promise.all([data.getCatalog(req.user), data.getSizeCharts(req.user)]);
+      system = chatSystemPrompt({
+        catalog: compactCatalog(catalog),
+        sizeCharts: compactSizeCharts(charts),
+        customerName: req.user.name.split(' ')[0],
+      });
+    } catch (err) {
+      await data.quota.refund(req.user.id);
+      throw err;
+    }
 
     const ctrl = new AbortController();
     res.on('close', () => { if (!res.writableEnded) ctrl.abort(); });
@@ -161,30 +88,31 @@ export function aiRoutes(db) {
         signal: ctrl.signal,
         onDelta: (text) => send({ type: 'delta', text }),
       });
-      send({ type: 'done', quota: strip(getQuota(db, req.user.id)) });
+      send({ type: 'done', quota: quotaView(await data.quota.get(req.user.id)) });
     } catch (err) {
-      refundQuota(db, req.user.id);
+      await data.quota.refund(req.user.id).catch(() => {});
       if (err.status !== 499) {
         if (!(err instanceof AiError)) console.error('[chat]', err);
         send({
           type: 'error',
           status: err.status || 500,
           error: err instanceof AiError ? err.message : 'Ada masalah di server. Coba lagi ya.',
-          quota: strip(getQuota(db, req.user.id)),
+          quota: quotaView(await data.quota.get(req.user.id).catch(() => quota)),
         });
       }
     }
     res.end();
   }));
 
-  /* ── 2. AI Generate Deskripsi Produk — admin ── */
-  r.post('/admin/describe', requireRole('admin'), asyncHandler(async (req, res) => {
+  /* ── 2. AI Generate Deskripsi Produk ── */
+  r.post('/admin/describe', auth('admin'), asyncHandler(async (req, res) => {
     const b = req.body || {};
+    const price = Number.parseInt(b.price, 10);
     const product = {
       name: str(b.name, 120),
       category: str(b.category, 40),
       gender: { pria: 'Pria', wanita: 'Wanita', unisex: 'Unisex (pria & wanita)' }[str(b.gender, 10)] || '',
-      price: toInt(b.price) > 0 ? toInt(b.price) : null,
+      price: price > 0 ? price : null,
       colors: str(b.colors, 120),
       sizes: (Array.isArray(b.sizes) ? b.sizes : []).map((s) => str(s, 10)).filter(Boolean).slice(0, 10),
       material: str(b.material, 150),
@@ -203,18 +131,13 @@ export function aiRoutes(db) {
       temperature: 0.8,
       maxTokens: 600,
     });
-    const description = cleanText(raw).replace(/^["“]|["”]$/g, '').slice(0, 3000);
-    res.json({ description });
+    res.json({ description: cleanText(raw).replace(/^["“]|["”]$/g, '').slice(0, 3000) });
   }));
 
-  /* ── 3. AI Analisis Penjualan — admin ── */
-  r.get('/admin/analytics', requireRole('admin'), (_req, res) => {
-    res.json({ metrics: buildSalesMetrics(db), ai: aiStatus('admin') });
-  });
-
-  r.post('/admin/analyze', requireRole('admin'), asyncHandler(async (req, res) => {
-    const metrics = buildSalesMetrics(db);
-    if (metrics.orders.total === 0) {
+  /* ── 3. AI Analisis Penjualan ── */
+  r.post('/admin/analyze', auth('admin'), asyncHandler(async (req, res) => {
+    const metrics = await data.getMetrics(req.user);
+    if (metrics.orders.total + metrics.orders.cancelled === 0) {
       throw badRequest('Belum ada data transaksi untuk dianalisis. Analisis bisa dibuat setelah ada pesanan masuk.');
     }
     assertConfigured('admin');
@@ -242,5 +165,3 @@ export function aiRoutes(db) {
 
   return r;
 }
-
-const strip = ({ limit, used, remaining, resetAt }) => ({ limit, used, remaining, resetAt });

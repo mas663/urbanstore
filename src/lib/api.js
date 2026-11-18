@@ -1,26 +1,38 @@
+import { supabase } from './supabase.js';
+
+// Klien untuk endpoint AI di server (/api/*). Token login Supabase dikirim sebagai Bearer
+// supaya server bisa memverifikasi user & role tanpa menyimpan sesi sendiri.
+
 export class ApiError extends Error {
   constructor(status, message, data = {}) {
     super(message);
     this.status = status;
     this.data = data;
-    this.fields = data.fields || {};
   }
 }
 
-export async function api(path, { method = 'GET', body, signal } = {}) {
-  let res;
+async function authHeaders(extra = {}) {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return { ...extra, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+}
+
+async function send(path, { method = 'GET', body, signal } = {}) {
   try {
-    res = await fetch(`/api${path}`, {
+    return await fetch(`/api${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: await authHeaders(body ? { 'Content-Type': 'application/json' } : {}),
       body: body ? JSON.stringify(body) : undefined,
-      credentials: 'same-origin',
       signal,
     });
   } catch (err) {
     if (err.name === 'AbortError') throw err;
     throw new ApiError(0, 'Koneksi terputus. Cek internet kamu lalu coba lagi.');
   }
+}
+
+export async function api(path, opts = {}) {
+  const res = await send(path, opts);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, data.error || 'Terjadi kesalahan. Coba lagi ya.', data);
   return data;
@@ -31,24 +43,11 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
  * Server mengirim baris: {"type":"delta","text":"..."} · {"type":"done",...} · {"type":"error","error":"..."}
  */
 export async function streamApi(path, body, { onDelta, signal } = {}) {
-  let res;
-  try {
-    res = await fetch(`/api${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      credentials: 'same-origin',
-      signal,
-    });
-  } catch (err) {
-    if (err.name === 'AbortError') throw err;
-    throw new ApiError(0, 'Koneksi terputus. Cek internet kamu lalu coba lagi.');
-  }
+  const res = await send(path, { method: 'POST', body, signal });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new ApiError(res.status, data.error || 'Terjadi kesalahan. Coba lagi ya.', data);
   }
-
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
