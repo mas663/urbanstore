@@ -16,6 +16,8 @@ export const config = {
   },
   ai: {
     provider: (env.AI_PROVIDER || 'gemini').toLowerCase(),
+    // Provider cadangan (opsional) saat provider utama gagal/limit, mis. AI_PROVIDER=gemini + AI_FALLBACK_PROVIDER=openai_compatible (9Router)
+    fallbackProvider: (env.AI_FALLBACK_PROVIDER || '').toLowerCase(),
     // Dua API key terpisah: customer (AI Shopping Assistant) & admin (deskripsi + analisis).
     // GEMINI_API_KEY lama tetap dipakai sebagai cadangan jika key per-scope belum diisi.
     geminiKeys: {
@@ -25,8 +27,9 @@ export const config = {
     geminiModel: env.GEMINI_MODEL || 'gemini-3-flash-preview',
     geminiBaseUrl: (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, ''),
     // Model cadangan saat model utama overload / rate limit (429/503)
-    // Default cadangan hanya untuk provider Gemini (9Router memakai nama model sendiri → isi AI_FALLBACK_MODEL)
-    fallbackModel: env.GEMINI_FALLBACK_MODEL ?? env.AI_FALLBACK_MODEL ?? ((env.AI_PROVIDER || 'gemini').toLowerCase() === 'gemini' ? 'gemini-3.5-flash-lite' : ''),
+    // Model cadangan PER provider (nama model Gemini ≠ nama model/combo di 9Router)
+    fallbackModel: env.GEMINI_FALLBACK_MODEL ?? 'gemini-3.5-flash-lite', // model cadangan di provider Gemini
+    routerFallbackModel: env.AI_FALLBACK_MODEL ?? '',                    // model/combo cadangan di 9Router
     baseUrl: (env.AI_BASE_URL || '').replace(/\/+$/, ''),
     apiKeys: {
       customer: env.AI_API_KEY_CUSTOMER || env.AI_API_KEY || '',

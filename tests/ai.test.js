@@ -65,6 +65,10 @@ before(async () => {
     req.on('end', () => {
       lastBody = { url: req.url, headers: req.headers, json: JSON.parse(raw || '{}') };
       if (req.url.includes('gemini-test')) primaryCalls += 1;
+      if (req.url.includes('/models/')) geminiCalls += 1;
+      if (req.url.includes('/chat/completions')) routerCalls += 1;
+      if (fakeMode === 'fail-gemini' && req.url.includes('/models/')) return res.writeHead(503).end('{"error":{"status":"UNAVAILABLE"}}');
+      if (fakeMode === 'bad-gemini-key' && req.url.includes('/models/')) return res.writeHead(403).end('{"error":{"message":"API key not valid"}}');
       if (fakeMode === 'fail') return res.writeHead(429).end('{"error":"rate limited"}');
       if (fakeMode === 'reject-thinking' && lastBody.json.generationConfig?.thinkingConfig) {
         return res.writeHead(400).end('{"error":{"message":"Thinking level is not supported for this model"}}');
@@ -95,15 +99,35 @@ before(async () => {
 after(() => { fake.close(); appServer.close(); });
 
 function useProvider(provider) {
-  Object.assign(config.ai, { fallbackModel: '' }, provider === 'gemini'
+  Object.assign(config.ai, { fallbackModel: '', fallbackProvider: '' }, provider === 'gemini'
     ? { provider: 'gemini', geminiKeys: { customer: 'customer-key', admin: 'admin-key' }, geminiModel: 'gemini-test', geminiBaseUrl: fakeBase }
     : { provider: 'openai_compatible', baseUrl: `${fakeBase}/v1`, apiKeys: { customer: 'router-customer', admin: 'router-admin' }, model: 'gemini/gemini-test' });
 }
 
 let primaryCalls = 0;
+let geminiCalls = 0;
+let routerCalls = 0;
+function useRouterWithGeminiFallback({ routerUrl = `${fakeBase}/v1`, routerFallbackModel = '' } = {}) {
+  Object.assign(config.ai, {
+    provider: 'openai_compatible', baseUrl: routerUrl, apiKeys: { customer: 'router-customer', admin: 'router-admin' }, model: 'urbanstore',
+    routerFallbackModel, fallbackProvider: 'gemini',
+    geminiKeys: { customer: 'customer-key', admin: 'admin-key' }, geminiModel: 'gemini-test', geminiBaseUrl: fakeBase, fallbackModel: '',
+  });
+}
+
+function useGeminiWithRouterFallback({ routerUrl = `${fakeBase}/v1` } = {}) {
+  Object.assign(config.ai, {
+    provider: 'gemini', geminiKeys: { customer: 'customer-key', admin: 'admin-key' }, geminiModel: 'gemini-test', geminiBaseUrl: fakeBase,
+    fallbackModel: '', fallbackProvider: 'openai_compatible',
+    baseUrl: routerUrl, apiKeys: { customer: 'router-customer', admin: 'router-admin' }, model: 'urbanstore',
+  });
+}
+
 beforeEach(() => {
   resetModelHealth();
   primaryCalls = 0;
+  geminiCalls = 0;
+  routerCalls = 0;
   fakeMode = 'ok';
   quotas.clear();
   metrics = { orders: { total: 0, cancelled: 0 } };
@@ -228,6 +252,84 @@ test('circuit breaker: model utama yang gagal dilewati, request berikutnya langs
   fakeMode = 'ok';
   await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'tiga' } });
   assert.equal(primaryCalls, 2);
+});
+
+test('fallback provider: Gemini gagal (503) → otomatis pindah ke 9Router, kuota hanya terpakai sekali', async () => {
+  useGeminiWithRouterFallback();
+  fakeMode = 'fail-gemini';
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(r.events.at(-1).type, 'done');
+  assert.equal(r.events.at(-1).quota.remaining, 4);
+  assert.equal(geminiCalls, 1);
+  assert.equal(routerCalls, 1);
+  assert.match(lastBody.url, /\/v1\/chat\/completions/);
+  assert.equal(lastBody.headers.authorization, 'Bearer router-customer'); // key customer milik 9Router
+  assert.equal(lastBody.json.model, 'urbanstore');
+  // Permintaan berikutnya langsung ke 9Router (Gemini dilewati selama cooldown)
+  await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'lagi' } });
+  assert.equal(geminiCalls, 1);
+  assert.equal(routerCalls, 2);
+  // Fitur admin memakai key admin milik 9Router
+  const d = await call('POST', '/api/admin/describe', { token: 'admin-token', body: { name: 'Relaxed Knit Polo', category: 'Kemeja', material: 'Cotton knit' } });
+  assert.equal(d.status, 200);
+  assert.equal(lastBody.headers.authorization, 'Bearer router-admin');
+});
+
+test('fallback provider (arah terbalik): 9Router utama mati total → pindah ke Gemini, walau 9Router punya model cadangan sendiri', async () => {
+  useRouterWithGeminiFallback({ routerUrl: 'http://127.0.0.1:1/v1', routerFallbackModel: 'combo-cadangan' });
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(r.events.at(-1).type, 'done');
+  assert.equal(geminiCalls, 1);
+  assert.equal(lastBody.headers['x-goog-api-key'], 'customer-key');
+  // Request berikutnya langsung ke Gemini (9Router dilewati selama cooldown, tanpa menunggu koneksi gagal lagi)
+  await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'lagi' } });
+  assert.equal(geminiCalls, 2);
+});
+
+test('fallback provider (arah terbalik): 9Router sehat → Gemini tidak dipakai; nama model Gemini tidak bocor ke 9Router', async () => {
+  useRouterWithGeminiFallback();
+  config.ai.fallbackModel = 'gemini-cadangan';
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(r.events.at(-1).type, 'done');
+  assert.equal(routerCalls, 1);
+  assert.equal(geminiCalls, 0);
+  assert.equal(lastBody.json.model, 'urbanstore');
+});
+
+test('fallback provider: Gemini sehat → 9Router tidak dipakai sama sekali', async () => {
+  useGeminiWithRouterFallback();
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(r.events.at(-1).type, 'done');
+  assert.equal(geminiCalls, 1);
+  assert.equal(routerCalls, 0);
+});
+
+test('fallback provider: key Gemini ditolak (403) pun tetap pindah ke 9Router', async () => {
+  useGeminiWithRouterFallback();
+  fakeMode = 'bad-gemini-key';
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(r.events.at(-1).type, 'done');
+  assert.equal(routerCalls, 1);
+});
+
+test('fallback provider: 9Router belum dikonfigurasi → error Gemini diteruskan ke user & kuota dikembalikan', async () => {
+  useGeminiWithRouterFallback({ routerUrl: '' });
+  fakeMode = 'fail-gemini';
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  const evt = r.events.at(-1);
+  assert.equal(evt.type, 'error');
+  assert.equal(evt.quota.remaining, 5);
+  assert.equal(routerCalls, 0);
+});
+
+test('fallback provider: status menampilkan provider cadangan; tetap aktif walau key Gemini kosong asal 9Router siap', async () => {
+  useGeminiWithRouterFallback();
+  assert.equal((await call('GET', '/api/ai/status?scope=customer')).data.fallbackProvider, 'openai_compatible');
+  config.ai.geminiKeys = { customer: '', admin: '' };
+  assert.equal((await call('GET', '/api/ai/status?scope=customer')).data.enabled, true); // lewat 9Router
+  const r = await call('POST', '/api/chat', { token: 'customer-token', body: { message: 'halo' } });
+  assert.equal(r.events.at(-1).type, 'done');
+  assert.equal(geminiCalls, 0);
 });
 
 test('describe: hanya admin, wajib data minimal, key admin, hasil teks bersih tanpa Markdown', async () => {

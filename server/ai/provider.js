@@ -4,6 +4,8 @@ import { config } from '../config.js';
  * Lapisan provider AI (Sesi 5).
  * - gemini            → Gemini API (Google AI Studio)
  * - openai_compatible → AI router seperti 9Router (satu endpoint, banyak model)
+ * AI_PROVIDER = provider utama. AI_FALLBACK_PROVIDER (opsional) = provider cadangan yang otomatis dipakai
+ * saat provider utama gagal / kena limit (contoh: utama Gemini langsung, cadangan 9Router).
  * Scope menentukan API key yang dipakai:
  *   customer → GEMINI_API_KEY_CUSTOMER (key "urbanstore-customer") untuk AI Shopping Assistant
  *   admin    → GEMINI_API_KEY_ADMIN    (key "urbanstore-admin")    untuk deskripsi & analisis
@@ -14,8 +16,25 @@ import { config } from '../config.js';
 const SCOPES = ['customer', 'admin'];
 const KEY_ENV = { customer: 'GEMINI_API_KEY_CUSTOMER', admin: 'GEMINI_API_KEY_ADMIN' };
 
-const keyFor = (scope) =>
-  config.ai.provider === 'openai_compatible' ? config.ai.apiKeys[scope] : config.ai.geminiKeys[scope];
+const keyFor = (scope, provider) =>
+  provider === 'openai_compatible' ? config.ai.apiKeys[scope] : config.ai.geminiKeys[scope];
+
+const primaryProvider = () => (config.ai.provider === 'openai_compatible' ? 'openai_compatible' : 'gemini');
+const isConfigured = (t, scope) =>
+  Boolean(t.model) && (t.provider === 'openai_compatible' ? Boolean(config.ai.baseUrl) : Boolean(keyFor(scope, 'gemini')));
+
+/** Daftar (provider, model) yang akan dicoba berurutan; yang belum dikonfigurasi dibuang. */
+function buildTargets(scope) {
+  const ai = config.ai;
+  const primary = primaryProvider();
+  const modelsOf = (p) => (p === 'openai_compatible' ? [ai.model, ai.routerFallbackModel] : [ai.geminiModel, ai.fallbackModel]);
+  const targets = modelsOf(primary).filter(Boolean).map((model) => ({ provider: primary, model }));
+  const fb = ai.fallbackProvider;
+  if (fb && fb !== primary) targets.push(...modelsOf(fb).filter(Boolean).map((model) => ({ provider: fb, model })));
+  return targets
+    .filter((t, i, arr) => arr.findIndex((x) => x.provider === t.provider && x.model === t.model) === i)
+    .filter((t) => isConfigured(t, scope));
+}
 
 export class AiError extends Error {
   constructor(status, message, upstream = null) {
@@ -30,19 +49,23 @@ const RETRYABLE = new Set([404, 429, 500, 503, 'timeout']); // 404 = model dihen
 
 export function aiStatus(scope = 'customer') {
   const ai = config.ai;
-  const fallback = ai.fallbackModel || null;
   if (!SCOPES.includes(scope)) scope = 'customer';
-  if (ai.provider === 'openai_compatible') {
-    return { enabled: Boolean(ai.baseUrl && ai.model), provider: 'openai_compatible', scope, model: ai.model || null, fallback };
-  }
-  return { enabled: Boolean(keyFor(scope)), provider: 'gemini', scope, model: ai.geminiModel, fallback };
+  const primary = primaryProvider();
+  return {
+    enabled: buildTargets(scope).length > 0,
+    provider: primary,
+    scope,
+    model: (primary === 'openai_compatible' ? ai.model : ai.geminiModel) || null,
+    fallback: (primary === 'openai_compatible' ? ai.routerFallbackModel : ai.fallbackModel) || null,
+    fallbackProvider: ai.fallbackProvider && ai.fallbackProvider !== primary ? ai.fallbackProvider : null,
+  };
 }
 
 export function assertConfigured(scope = 'customer') {
   if (!aiStatus(scope).enabled) {
     throw new AiError(
       503,
-      config.ai.provider === 'openai_compatible'
+      primaryProvider() === 'openai_compatible'
         ? 'Fitur AI belum dikonfigurasi. Isi AI_BASE_URL dan AI_MODEL di file .env server.'
         : `Fitur AI belum dikonfigurasi. Isi ${KEY_ENV[scope]} di file .env server.`,
     );
@@ -64,10 +87,10 @@ function friendlyError(status, detail) {
 // Level minimal/low membuat respons cepat dan utuh. Model yang menolak pengaturan ini dicatat lalu dicoba tanpa pengaturan.
 const noThinkingConfig = new Set();
 
-function buildRequest({ system, messages, temperature = 0.7, maxTokens = 1024, stream, model, scope, thinking = 'minimal' }) {
+function buildRequest({ system, messages, temperature = 0.7, maxTokens = 1024, stream, model, scope, thinking = 'minimal', provider }) {
   const ai = config.ai;
-  const key = keyFor(scope);
-  if (ai.provider === 'openai_compatible') {
+  const key = keyFor(scope, provider);
+  if (provider === 'openai_compatible') {
     return {
       url: `${ai.baseUrl}/chat/completions`,
       headers: {
@@ -100,8 +123,8 @@ function buildRequest({ system, messages, temperature = 0.7, maxTokens = 1024, s
 }
 
 /** Ambil potongan teks dari satu event (Gemini / OpenAI-compatible). */
-function extractText(json) {
-  if (config.ai.provider === 'openai_compatible') {
+function extractText(json, provider) {
+  if (provider === 'openai_compatible') {
     return json.choices?.[0]?.delta?.content ?? json.choices?.[0]?.message?.content ?? '';
   }
   if (json.promptFeedback?.blockReason) throw new AiError(422, 'Pertanyaan ini tidak bisa dijawab AI. Coba ganti pertanyaannya ya.');
@@ -119,39 +142,50 @@ function extractText(json) {
 const COOLDOWN_MS = 3 * 60 * 1000;
 const FAST_FAIL_MS = 8000; // batas tunggu respons pertama model utama jika ada cadangan
 const unhealthyUntil = new Map();
+const healthKey = (t) => `${t.provider}:${t.model}`;
 export const resetModelHealth = () => unhealthyUntil.clear();
-const isUnhealthy = (model) => (unhealthyUntil.get(model) || 0) > Date.now();
+const isUnhealthy = (t) => (unhealthyUntil.get(healthKey(t)) || 0) > Date.now();
 
 export async function callAi(opts) {
   if (!SCOPES.includes(opts.scope)) throw new Error('callAi: scope wajib "customer" atau "admin"');
   assertConfigured(opts.scope);
-  const ai = config.ai;
-  const primary = ai.provider === 'openai_compatible' ? ai.model : ai.geminiModel;
-  let models = [primary, ai.fallbackModel].filter((m, i, arr) => m && arr.indexOf(m) === i);
-  // Model utama sedang bermasalah → coba cadangan dulu, model utama jadi pilihan terakhir
-  if (models.length > 1 && isUnhealthy(models[0])) models = [...models.slice(1), models[0]];
+  const targets = buildTargets(opts.scope);
+  // Target yang sedang bermasalah dicoba paling akhir (urutan lain tetap)
+  const ordered = [...targets.filter((t) => !isUnhealthy(t)), ...targets.filter(isUnhealthy)];
 
   let lastErr;
-  for (const [i, model] of models.entries()) {
-    const hasNext = i < models.length - 1;
+  let i = 0;
+  while (i < ordered.length) {
+    const t = ordered[i];
+    const hasMore = i < ordered.length - 1;
     try {
-      const result = await callOnce({ ...opts, model, timeoutMs: hasNext ? FAST_FAIL_MS : config.ai.timeoutMs });
-      unhealthyUntil.delete(model);
+      const result = await callOnce({ ...opts, ...t, timeoutMs: hasMore ? FAST_FAIL_MS : config.ai.timeoutMs });
+      unhealthyUntil.delete(healthKey(t));
       return result;
     } catch (err) {
       lastErr = err;
-      // Fallback hanya jika belum ada teks yang terkirim ke user & errornya sementara (overload / limit / timeout)
-      if (!(err instanceof AiError) || !RETRYABLE.has(err.upstream) || err.streamed) throw err;
-      unhealthyUntil.set(model, Date.now() + COOLDOWN_MS);
-      if (hasNext) console.warn(`[ai] ${model} gagal (${err.upstream}), mencoba ${models[i + 1]}. ${model} dilewati ${COOLDOWN_MS / 60000} menit.`);
+      // Jangan pindah jika: bukan AiError, sudah ada teks terkirim ke user, dibatalkan user, atau konten diblokir
+      if (!(err instanceof AiError) || err.streamed || err.status === 499 || err.status === 422) throw err;
+      // Error sementara (overload / limit / timeout / model dihentikan) → cukup coba model berikutnya.
+      // Error level-provider (jaringan putus, key salah, konfigurasi) → semua model provider itu ikut gagal,
+      // jadi loncat ke provider lain.
+      const providerLevel = !RETRYABLE.has(err.upstream);
+      const nextIdx = providerLevel ? ordered.findIndex((x, j) => j > i && x.provider !== t.provider) : i + 1;
+      if (nextIdx < 0 || nextIdx >= ordered.length) throw err;
+      for (const x of providerLevel ? ordered.filter((y) => y.provider === t.provider) : [t]) {
+        unhealthyUntil.set(healthKey(x), Date.now() + COOLDOWN_MS);
+      }
+      const next = ordered[nextIdx];
+      console.warn(`[ai] ${t.provider}/${t.model} gagal (${err.upstream ?? err.status}), mencoba ${next.provider}/${next.model}. Dilewati ${COOLDOWN_MS / 60000} menit.`);
+      i = nextIdx;
     }
   }
   throw lastErr;
 }
 
-async function callOnce({ system, messages, temperature, maxTokens, onDelta, signal, model, scope, timeoutMs, thinking }) {
+async function callOnce({ system, messages, temperature, maxTokens, onDelta, signal, model, scope, timeoutMs, thinking, provider }) {
   const stream = typeof onDelta === 'function';
-  const req = buildRequest({ system, messages, temperature, maxTokens, stream, model, scope, thinking });
+  const req = buildRequest({ system, messages, temperature, maxTokens, stream, model, scope, thinking, provider });
 
   const ctrl = new AbortController();
   const abort = () => ctrl.abort();
@@ -171,19 +205,19 @@ async function callOnce({ system, messages, temperature, maxTokens, onDelta, sig
     }
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      if (res.status === 400 && /thinking/i.test(detail) && config.ai.provider === 'gemini' && !noThinkingConfig.has(model)) {
+      if (res.status === 400 && /thinking/i.test(detail) && provider === 'gemini' && !noThinkingConfig.has(model)) {
         noThinkingConfig.add(model);
         console.warn(`[ai] ${model} menolak thinkingConfig, mengulang tanpa pengaturan itu`);
         clearTimeout(timer);
         signal?.removeEventListener('abort', abort);
-        return callOnce({ system, messages, temperature, maxTokens, onDelta, signal, model, scope, timeoutMs, thinking });
+        return callOnce({ system, messages, temperature, maxTokens, onDelta, signal, model, scope, timeoutMs, thinking, provider });
       }
       throw friendlyError(res.status, detail);
     }
 
     if (!stream) {
       const json = await res.json();
-      const text = extractText(json).trim();
+      const text = extractText(json, provider).trim();
       if (!text) throw new AiError(502, 'AI tidak memberikan jawaban. Coba lagi ya.');
       return text;
     }
@@ -207,7 +241,7 @@ async function callOnce({ system, messages, temperature, maxTokens, onDelta, sig
           if (!data || data === '[DONE]') continue;
           let json;
           try { json = JSON.parse(data); } catch { continue; }
-          const piece = extractText(json);
+          const piece = extractText(json, provider);
           if (piece) {
             full += piece;
             onDelta(piece);

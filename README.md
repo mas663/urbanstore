@@ -129,6 +129,13 @@ tests/                  tes skema (PGlite) & AI
 - Data wilayah dari [emsifa/api-wilayah-indonesia](https://github.com/emsifa/api-wilayah-indonesia) (MIT, data Kemendagri). Data ini memakai pembagian 34 provinsi, sebelum pemekaran Papua 2022.
 - Di luar scope saat ini: payment gateway/QRIS otomatis, ongkir per kota, multi-seller.
 
+## Provider AI: utama + cadangan
+
+`AI_PROVIDER` = provider utama, `AI_FALLBACK_PROVIDER` (opsional) = cadangan otomatis saat utama gagal, kena limit (429/503), timeout, atau key salah.
+Contoh lokal: 9Router utama, Gemini cadangan (`AI_PROVIDER=openai_compatible`, `AI_FALLBACK_PROVIDER=gemini`).
+Di Vercel pakai Gemini langsung saja (`AI_PROVIDER=gemini`, tanpa cadangan provider) karena 9Router di localhost tidak terjangkau.
+Catatan akun gratis Google AI Studio: `gemini-3-flash-preview` hanya 20 permintaan/hari. Untuk situs live pakai `gemini-3.5-flash-lite` atau aktifkan billing.
+
 ## Jika fitur AI terasa lambat atau gagal
 
 - Ketersediaan model Gemini berubah-ubah (akun gratis punya kuota & beban per model). Server mencatat model yang sedang gagal (503/429/timeout/404) dan melewatinya 3 menit, lalu memakai `GEMINI_FALLBACK_MODEL`.

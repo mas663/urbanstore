@@ -7,3 +7,7 @@ data/
 .DS_Store
 .env.vercel
 .vercel
+
+# Semua varian .env berisi rahasia — hanya .env.example yang boleh masuk Git
+.env.*
+!.env.example

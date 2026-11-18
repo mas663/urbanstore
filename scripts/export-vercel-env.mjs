@@ -28,6 +28,9 @@ for (const line of fs.readFileSync(envFile, 'utf8').split('\n')) {
 
 const out = [];
 const rows = [];
+// Situs live (Vercel) tidak bisa menjangkau 9Router di localhost → selalu Gemini langsung, tanpa provider cadangan.
+values.AI_PROVIDER = 'gemini';
+
 for (const name of NEEDED) {
   const v = values[name];
   const ok = Boolean(v) && !/^<.*>$|\.\.\.$|<project-id>/.test(v);
