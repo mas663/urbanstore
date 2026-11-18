@@ -73,6 +73,7 @@ const STATUS_TONE = {
   dikirim: 'bg-ink text-paper',
   selesai: 'border border-ink text-ink',
   dibatalkan: 'bg-danger/10 text-danger',
+  kedaluwarsa: 'bg-soft text-mute line-through',
 };
 
 export function StatusBadge({ status, label }) {

@@ -2,10 +2,11 @@ const idr = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR',
 
 export const rupiah = (n) => idr.format(n || 0).replace(/\s/g, '');
 
-// Tanggal dari SQLite disimpan dalam UTC ("YYYY-MM-DD HH:MM:SS")
-export function formatDate(sqliteDate, withTime = true) {
-  if (!sqliteDate) return '-';
-  const d = new Date(sqliteDate.replace(' ', 'T') + 'Z');
+// Tanggal dari Supabase berformat ISO (timestamptz), mis. 2026-11-18T13:00:00+00:00
+export function formatDate(value, withTime = true) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleString('id-ID', {
     day: 'numeric',
     month: 'short',
