@@ -66,7 +66,7 @@ npm run dev        # web http://localhost:5173 + server AI :3001
 ## 4. Deploy ke Vercel
 
 1. Push repo ke GitHub, lalu di Vercel: **Add New → Project → Import** repo ini. Framework (Vite) terdeteksi otomatis lewat [`vercel.json`](vercel.json).
-2. **Settings → Environment Variables:** isi semua variabel dari tabel di atas (Production & Preview).
+2. **Environment Variables:** jalankan `npm run vercel:env` (menyiapkan `.env.vercel` berisi 13 variabel yang dibutuhkan, tanpa menampilkan nilainya), lalu `pbcopy < .env.vercel` dan **paste sekali** ke kolom Key di halaman import Vercel. Pilih Production & Preview. Hapus file itu setelahnya: `rm .env.vercel`. Variabel berawalan `VITE_` ikut ke browser saat **build**, jadi kalau diubah harus redeploy.
 3. **Deploy.** Frontend disajikan sebagai static, dan `/api/*` berjalan sebagai Vercel Function ([`api/index.js`](api/index.js), timeout 60 detik untuk streaming AI).
 4. Di Supabase → Authentication → URL Configuration: ganti *Site URL* ke `https://<app>.vercel.app` dan tambahkan ke *Redirect URLs*.
 
