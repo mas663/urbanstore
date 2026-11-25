@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { fetchProductBySlug, fetchRelated, fetchSizeCharts } from '../lib/catalog.js';
-import { discountPercent, GENDER_LABEL } from '../lib/format.js';
+import { discountPercent, formatSold, GENDER_LABEL } from '../lib/format.js';
+import { addRecentlyViewed } from '../lib/recentlyViewed.js';
+import RecentlyViewed from '../components/RecentlyViewed.jsx';
 import { useAuth, useCart, useToast } from '../context/AppContext.jsx';
 import SizeGuide from '../components/SizeGuide.jsx';
 import { ArrowIcon, RulerIcon } from '../components/icons.jsx';
 import { modelImage } from '../lib/productImages.js';
-import { ErrorState, Price, ProductCard, QtyStepper } from '../components/ui.jsx';
+import { ErrorState, Price, ProductCard, QtyStepper, WishlistButton } from '../components/ui.jsx';
 
 const SWATCH = {
   Hitam: '#141414', Putih: '#fbfbf9', 'Off White': '#f1ede3', Krem: '#e4d9c3', Natural: '#e8e0cb',
@@ -49,6 +51,7 @@ export default function ProductDetail() {
         if (!active) return;
         if (!p) throw new Error('Produk tidak ditemukan atau sudah tidak dijual.');
         setProduct(p);
+        addRecentlyViewed(p.slug); // catat ke riwayat "Terakhir kamu lihat"
         // Pilih otomatis warna pertama yang masih ada stok
         setColor(p.colors.find((c) => p.variants.some((v) => v.color === c && v.stock > 0)) || p.colors[0] || '');
         if (p.sizes.length === 1) setSize(p.sizes[0]);
@@ -168,6 +171,11 @@ export default function ProductDetail() {
               <Price price={product.price} compareAt={product.compareAtPrice} className="text-2xl" />
               {off > 0 && <span className="tag bg-lemon px-2 py-1">-{off}%</span>}
             </div>
+            {product.sold > 0 && (
+              <p className="mt-3 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.06em] text-mute">
+                <span className="h-1.5 w-1.5 bg-lemon ring-1 ring-ink" aria-hidden="true" />Terjual {formatSold(product.sold)} pcs
+              </p>
+            )}
 
             {/* Varian: warna */}
             <div className="mt-9 border-t border-ink pt-6">
@@ -228,9 +236,10 @@ export default function ProductDetail() {
 
             <div className="mt-8 flex items-stretch gap-2">
               <QtyStepper value={qty} max={Math.max(variant?.stock || 1, 1)} onChange={setQty} disabled={!product.inStock} className="h-14" />
-              <button className="btn-primary h-14 flex-1 text-[15px]" onClick={handleAdd} disabled={!product.inStock || busy}>
+              <button className="btn-primary h-14 min-w-0 flex-1 text-[15px]" onClick={handleAdd} disabled={!product.inStock || busy}>
                 {!product.inStock ? 'Stok Habis' : busy ? 'Menambahkan…' : user ? <>Add to Cart <ArrowIcon size={18} /></> : 'Login untuk Belanja'}
               </button>
+              <WishlistButton product={product} size={20} className="h-14 w-14 shrink-0 border border-ink" />
             </div>
             <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.06em] text-mute" aria-live="polite">{stockText}</p>
 
@@ -271,6 +280,8 @@ export default function ProductDetail() {
           </div>
         </section>
       )}
+
+      <RecentlyViewed exclude={product.slug} className="mt-24 border-t border-ink pt-10" />
     </div>
   );
 }

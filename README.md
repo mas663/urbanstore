@@ -19,6 +19,7 @@ Browser (React) ──► Supabase  (katalog, keranjang, pesanan, auth, storage 
 1. **Buat project** di [supabase.com](https://supabase.com) (kalau belum).
 2. **Buat tabel:** Dashboard → **SQL Editor** → *New query* → paste isi [`supabase/migrations/001_schema.sql`](supabase/migrations/001_schema.sql) → **Run**.
 3. **Isi data contoh:** query baru → paste isi [`supabase/seed.sql`](supabase/seed.sql) → **Run** (14 produk + varian).
+   - **Fitur engagement:** query baru → paste isi [`supabase/migrations/002_engagement.sql`](supabase/migrations/002_engagement.sql) → **Run** (tabel wishlist + jumlah terjual).
 4. **Auth:** Dashboard → **Authentication → Sign In / Providers → Email**:
    - Untuk development, matikan **Confirm email** supaya bisa langsung login setelah daftar. Kalau tetap aktif, user harus klik link konfirmasi di email dulu.
    - **Authentication → URL Configuration**: isi *Site URL* dengan `http://localhost:5173`. Setelah deploy, ganti dengan domain Vercel dan tambahkan juga ke *Redirect URLs*.
@@ -57,7 +58,7 @@ npm run dev        # web http://localhost:5173 + server AI :3001
 | Perintah | Fungsi |
 |---|---|
 | `npm run dev` | Development (Vite + server AI) |
-| `npm test` | 23 tes: skema Supabase di Postgres lokal (PGlite) + endpoint AI |
+| `npm test` | 35 tes: skema Supabase di Postgres lokal (PGlite) + endpoint AI |
 | `npm run build` | Build production ke `dist/` |
 | `npm run seed:sql` | Generate ulang `supabase/seed.sql` dari `scripts/seed-data.js` |
 | `npm run wilayah` | Unduh ulang data provinsi/kota/kecamatan ke `public/wilayah` |
@@ -114,7 +115,7 @@ api/index.js            Vercel Function → server/app.js
 docs/                   PRD (md + html), audit routing
 public/wilayah/         data provinsi/kota/kecamatan (statis)
 server/                 endpoint AI (Express), provider Gemini/9Router, prompt
-supabase/               migrations/001_schema.sql, seed.sql
+supabase/               migrations/001_schema.sql, 002_engagement.sql, seed.sql
 src/
   lib/                  supabase client, catalog, api AI, kompres gambar, invoice PDF
   context/              Auth (Supabase), Cart, Toast

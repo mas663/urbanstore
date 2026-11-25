@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { discountPercent, GENDER_LABEL, rupiah } from '../lib/format.js';
+import { discountPercent, formatSold, GENDER_LABEL, rupiah } from '../lib/format.js';
+import { useWishlist } from '../context/WishlistContext.jsx';
 import { modelImage } from '../lib/productImages.js';
-import { ArrowIcon } from './icons.jsx';
+import { ArrowIcon, HeartIcon } from './icons.jsx';
 
 export function Field({ label, error, hint, children, htmlFor }) {
   return (
@@ -27,11 +28,28 @@ export function Price({ price, compareAt, className = '' }) {
   );
 }
 
+/** Tombol hati (favorit). Dipakai di kartu produk dan halaman detail. */
+export function WishlistButton({ product, className = '', size = 18 }) {
+  const { has, toggle } = useWishlist();
+  const liked = has(product.id);
+  return (
+    <button type="button" onClick={() => toggle(product)}
+      aria-pressed={liked} aria-label={liked ? `Hapus ${product.name} dari favorit` : `Simpan ${product.name} ke favorit`}
+      className={`flex items-center justify-center transition-[background-color,color,transform] duration-200 active:scale-90 ${
+        liked ? 'bg-ink text-lemon' : 'bg-paper/90 text-ink hover:bg-lemon'
+      } ${className}`}>
+      <HeartIcon size={size} filled={liked} />
+    </button>
+  );
+}
+
 export function ProductCard({ product, index, priority = false }) {
   const off = discountPercent(product.price, product.compareAtPrice);
   const alt = modelImage(product.slug);
   return (
-    <Link to={`/produk/${product.slug}`} className="group block">
+    // div pembungkus: tombol hati diletakkan DI LUAR <Link> (tombol di dalam link = HTML tidak valid)
+    <div className="group relative">
+    <Link to={`/produk/${product.slug}`} className="block">
       <div className="relative aspect-[4/5] overflow-hidden bg-studio">
         <img
           src={product.imageUrl}
@@ -47,7 +65,7 @@ export function ProductCard({ product, index, priority = false }) {
           {product.inStock && off > 0 && <span className="tag bg-lemon px-2 py-1">-{off}%</span>}
           {product.inStock && product.stock <= 5 && <span className="tag bg-paper px-2 py-1">Sisa {product.stock}</span>}
         </div>
-        {index != null && <span className="tag absolute right-3 top-3 text-ink/45">{String(index).padStart(2, '0')}</span>}
+        {index != null && <span className="tag absolute right-14 top-4 text-ink/45">{String(index).padStart(2, '0')}</span>}
         {product.inStock && (
           <div className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-between bg-ink px-4 py-3 text-paper transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-y-0">
             <span className="tag text-paper/70">{product.sizes.join(' · ')}</span>
@@ -58,11 +76,14 @@ export function ProductCard({ product, index, priority = false }) {
       <div className="mt-3.5 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <p className="eyebrow !text-[10px]">{product.category.name} · {GENDER_LABEL[product.gender]}</p>
-          <h3 className="mt-1.5 text-[15px] font-medium leading-snug">{product.name}</h3>
+          <h3 className="mt-1.5 text-[15px] font-medium leading-snug group-hover:underline group-hover:underline-offset-4">{product.name}</h3>
+          {product.sold > 0 && <p className="mt-1 font-mono text-[11px] text-mute">Terjual {formatSold(product.sold)}</p>}
         </div>
         <Price price={product.price} compareAt={product.compareAtPrice} className="shrink-0 flex-wrap !gap-x-2 !gap-y-0 text-sm sm:flex-col sm:!items-end" />
       </div>
     </Link>
+    <WishlistButton product={product} className="absolute right-2.5 top-2.5 h-9 w-9" />
+    </div>
   );
 }
 

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, useCart } from '../context/AppContext.jsx';
+import { useWishlist } from '../context/WishlistContext.jsx';
 import { useRevealIn } from '../lib/useReveal.js';
-import { ArrowIcon, BagIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from './icons.jsx';
+import { ArrowIcon, BagIcon, CloseIcon, HeartIcon, MenuIcon, SearchIcon, UserIcon } from './icons.jsx';
 import { Marquee } from './ui.jsx';
 import CartDrawer from './CartDrawer.jsx';
 import ChatWidget from './ChatWidget.jsx';
@@ -12,6 +13,7 @@ const NAV = [
   { to: '/koleksi?gender=pria', label: 'Pria' },
   { to: '/koleksi?gender=wanita', label: 'Wanita' },
   { to: '/akun/pesanan', label: 'Pesanan Saya' },
+  { to: '/favorit', label: 'Favorit' },
 ];
 
 const ANNOUNCEMENTS = [
@@ -36,6 +38,7 @@ export function Logo({ className = '', invert = false }) {
 function Header() {
   const { cart, setOpen } = useCart();
   const { user, logout } = useAuth();
+  const wishlist = useWishlist();
   const [menu, setMenu] = useState(false);
   const [account, setAccount] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -119,6 +122,16 @@ function Header() {
                 </div>
               )}
             </div>
+            {user?.role !== 'admin' && (
+              <Link to="/favorit" className="btn-ghost relative !px-2.5" aria-label={`Favorit, ${wishlist.count} produk`}>
+                <HeartIcon filled={location.pathname === '/favorit'} />
+                {wishlist.count > 0 && (
+                  <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center bg-ink px-1 font-mono text-[10px] font-bold text-lemon">
+                    {wishlist.count}
+                  </span>
+                )}
+              </Link>
+            )}
             <button className="btn-ghost relative !px-2.5" onClick={() => setOpen(true)} aria-label={`Keranjang, ${cart.count} item`}>
               <BagIcon />
               {cart.count > 0 && (
@@ -170,7 +183,7 @@ function Footer() {
         <div className="grid grid-cols-2 gap-10 sm:grid-cols-3 lg:col-span-6 lg:col-start-7">
           {[
             ['Belanja', [['/koleksi', 'Semua Koleksi'], ['/koleksi?gender=pria', 'Pria'], ['/koleksi?gender=wanita', 'Wanita'], ['/koleksi?sort=newest', 'Terbaru']]],
-            ['Bantuan', [['/#faq', 'FAQ'], ['/akun/pesanan', 'Pesanan Saya'], ['/#size-finder', 'Cari Ukuran']]],
+            ['Bantuan', [['/#faq', 'FAQ'], ['/akun/pesanan', 'Pesanan Saya'], ['/favorit', 'Favorit'], ['/#size-finder', 'Cari Ukuran']]],
             ['Untuk Toko', [['/admin', 'Store Admin']]],
           ].map(([title, links]) => (
             <div key={title}>

@@ -218,3 +218,30 @@ test('kuota chat: hanya service_role; maks 5 per jendela; refund; reset setelah 
   assert.equal((await svc('select public.get_chat_quota($1, 5, 43200) as q', [rianId])).rows[0].q.remaining, 5);
   assert.equal((await consume()).remaining, 4);
 });
+
+test('wishlist: hanya milik sendiri, anon ditolak, tidak bisa dobel', async () => {
+  const { rows: [p] } = await db.query(`select id from public.products where name = 'Cargo Pants Olive'`);
+  await rian('insert into public.wishlist_items (product_id) values ($1)', [p.id]);
+  await assert.rejects(rian('insert into public.wishlist_items (product_id) values ($1)', [p.id]), /duplicate key/);
+  // Maya tidak bisa melihat atau menghapus wishlist Rian
+  assert.equal((await maya('select count(*)::int as n from public.wishlist_items')).rows[0].n, 0);
+  assert.equal((await maya('delete from public.wishlist_items returning product_id')).rows.length, 0);
+  // Tidak bisa menambahkan atas nama orang lain
+  await assert.rejects(maya('insert into public.wishlist_items (user_id, product_id) values ($1, $2)', [rianId, p.id]), /row-level security/);
+  await assert.rejects(anon('select * from public.wishlist_items'), /permission denied/);
+  assert.equal((await rian('select count(*)::int as n from public.wishlist_items')).rows[0].n, 1);
+  await rian('delete from public.wishlist_items where product_id = $1', [p.id]);
+  assert.equal((await rian('select count(*)::int as n from public.wishlist_items')).rows[0].n, 0);
+});
+
+test('jumlah terjual: publik, hanya pesanan lunas, tanpa data pribadi', async () => {
+  const { rows } = await anon('select * from public.get_product_sales()');
+  assert.deepEqual(Object.keys(rows[0] || { product_id: 0, sold: 0 }).sort(), ['product_id', 'sold']);
+  // Bandingkan dengan perhitungan langsung (superuser) atas pesanan berstatus dibayar
+  const expected = (await db.query(`select oi.product_id, sum(oi.qty)::int as sold from public.order_items oi
+    join public.orders o on o.id = oi.order_id where o.status in ('lunas','dikirim','selesai')
+    group by oi.product_id order by 1`)).rows;
+  const got = [...rows].sort((a, b) => Number(a.product_id) - Number(b.product_id));
+  assert.deepEqual(got.map((r) => [Number(r.product_id), r.sold]), expected.map((r) => [Number(r.product_id), r.sold]));
+  assert.ok(expected.length > 0, 'tes sebelumnya sudah membuat pesanan lunas');
+});

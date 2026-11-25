@@ -2,7 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, CartProvider, ToastProvider } from './context/AppContext.jsx';
+import { WishlistProvider } from './context/WishlistContext.jsx';
 import { supabaseConfigured } from './lib/supabase.js';
 import './index.css';
 
@@ -27,11 +29,15 @@ createRoot(document.getElementById('root')).render(
       <ToastProvider>
         <AuthProvider>
           <CartProvider>
-            <App />
+            <WishlistProvider>
+              <App />
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>
+    {/* Vercel Web Analytics: hitung kunjungan per halaman (tanpa cookie). Aktif hanya di situs Vercel. */}
+    <Analytics />
   </StrictMode>
   ) : <SetupNeeded />,
 );

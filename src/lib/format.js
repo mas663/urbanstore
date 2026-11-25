@@ -30,3 +30,11 @@ export function cleanAiText(text) {
     .replace(/(^|\s)\*(\S[^*\n]*\S|\S)\*(?=\s|[.,!?]|$)/g, '$1$2')
     .replace(/\n{3,}/g, '\n\n');
 }
+
+/** Format angka terjual yang ringkas: 7 → "7", 128 → "100+", 1450 → "1rb+". */
+export function formatSold(n) {
+  if (!n) return '';
+  if (n >= 1000) return `${Math.floor(n / 1000)}rb+`;
+  if (n >= 100) return `${Math.floor(n / 100) * 100}+`;
+  return String(n);
+}

@@ -20,3 +20,4 @@ export const RulerIcon = (p) => <Svg {...p}><path d="M3 16L16 3l5 5L8 21l-5-5z" 
 export const SendIcon = (p) => <Svg {...p}><path d="M4 12l16-8-6 16-2-7-8-1z" /></Svg>;
 export const RefreshIcon = (p) => <Svg {...p}><path d="M20 12a8 8 0 1 1-2.3-5.7" /><path d="M20 4v5h-5" /></Svg>;
 export const DownloadIcon = (p) => <Svg {...p}><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></Svg>;
+export const HeartIcon = ({ filled, ...p }) => <Svg {...p}><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.4a4.3 4.3 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z" fill={filled ? 'currentColor' : 'none'} strokeLinejoin="round" /></Svg>;

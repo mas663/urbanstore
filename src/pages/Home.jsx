@@ -5,6 +5,7 @@ import { rupiah } from '../lib/format.js';
 import { editorialImage, resolveImage } from '../lib/productImages.js';
 import { ArrowIcon, PlusIcon, RulerIcon } from '../components/icons.jsx';
 import { Marquee, ProductCard, ProductGridSkeleton } from '../components/ui.jsx';
+import RecentlyViewed from '../components/RecentlyViewed.jsx';
 
 /* Landing page UrbanStore v2 — editorial streetwear.
    01 Hero · 02 Marquee · 03 Kategori · 04 Featured · 05 Shop the Look · 06 Size Finder
@@ -242,6 +243,9 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      {/* 04b · TERAKHIR DILIHAT (hanya muncul kalau pengunjung pernah membuka produk) */}
+      <RecentlyViewed className="container-x pt-20 lg:pt-28" />
 
       {/* 05 · SHOP THE LOOK */}
       <section className="container-x py-20 lg:py-28">

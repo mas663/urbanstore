@@ -34,6 +34,40 @@ export function normalizeProduct(row) {
   };
 }
 
+/* ── Jumlah terjual (bukti sosial) ─────────────────────────────
+   Diambil dari fungsi database get_product_sales() (migrasi 002).
+   Hasilnya disimpan (cache) 60 detik di memori supaya pindah halaman tidak memanggil server lagi. */
+const SALES_TTL = 60_000;
+let salesCache = { at: 0, promise: null };
+
+export function fetchSalesMap() {
+  const stale = Date.now() - salesCache.at > SALES_TTL;
+  if (!salesCache.promise || stale) {
+    const promise = supabase.rpc('get_product_sales').then(({ data, error }) => {
+      // Kalau migrasi 002 belum dijalankan, fungsi belum ada → anggap belum ada penjualan (badge disembunyikan)
+      if (error) return {};
+      return Object.fromEntries(data.map((r) => [Number(r.product_id), r.sold]));
+    }, () => ({}));
+    salesCache = { at: Date.now(), promise };
+  }
+  return salesCache.promise;
+}
+
+/** Tempelkan properti `sold` ke setiap produk. */
+async function withSales(list) {
+  const sales = await fetchSalesMap();
+  return list.map((p) => ({ ...p, sold: sales[p.id] || 0 }));
+}
+
+/** Ambil beberapa produk sekaligus berdasarkan id atau slug, urutannya mengikuti daftar yang diminta. */
+export async function fetchProductsIn(column, values) {
+  if (!values.length) return [];
+  const rows = await run(supabase.from('products').select(PRODUCT_SELECT).eq('is_active', true).in(column, values));
+  const list = await withSales(rows.map(normalizeProduct));
+  const key = column === 'id' ? (p) => p.id : (p) => p.slug;
+  return values.map((v) => list.find((p) => String(key(p)) === String(v))).filter(Boolean);
+}
+
 const cleanSearch = (q) => String(q || '').replace(/[%_,()*\\]/g, ' ').trim().slice(0, 60);
 
 export async function fetchProducts({ q, gender, category, sort, featured, limit = 60, includeInactive = false } = {}) {
@@ -52,12 +86,12 @@ export async function fetchProducts({ q, gender, category, sort, featured, limit
   const products = rows.map(normalizeProduct);
   // Rekomendasi: produk yang masih ada stok tampil lebih dulu
   if (!sort) products.sort((a, b) => Number(b.inStock) - Number(a.inStock));
-  return products;
+  return withSales(products);
 }
 
 export async function fetchProductBySlug(slug) {
   const row = await run(supabase.from('products').select(PRODUCT_SELECT).eq('slug', slug).eq('is_active', true).maybeSingle());
-  return row ? normalizeProduct(row) : null;
+  return row ? (await withSales([normalizeProduct(row)]))[0] : null;
 }
 
 export async function fetchCategories() {
@@ -84,7 +118,7 @@ export async function fetchRelated(product) {
     );
     for (const p of more.map(normalizeProduct)) if (list.length < 4 && !list.some((x) => x.id === p.id)) list.push(p);
   }
-  return list.sort((a, b) => Number(b.inStock) - Number(a.inStock));
+  return withSales(list.sort((a, b) => Number(b.inStock) - Number(a.inStock)));
 }
 
 export const SHIPPING = [
