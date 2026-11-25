@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { discountPercent, GENDER_LABEL, rupiah } from '../lib/format.js';
+import { modelImage } from '../lib/productImages.js';
+import { ArrowIcon } from './icons.jsx';
 
 export function Field({ label, error, hint, children, htmlFor }) {
   return (
@@ -25,31 +27,40 @@ export function Price({ price, compareAt, className = '' }) {
   );
 }
 
-export function ProductCard({ product }) {
+export function ProductCard({ product, index, priority = false }) {
   const off = discountPercent(product.price, product.compareAtPrice);
+  const alt = modelImage(product.slug);
   return (
     <Link to={`/produk/${product.slug}`} className="group block">
-      <div className="relative aspect-[4/5] overflow-hidden bg-soft">
+      <div className="relative aspect-[4/5] overflow-hidden bg-studio">
         <img
           src={product.imageUrl}
           alt={product.name}
-          loading="lazy"
-          className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] ${
+          loading={priority ? 'eager' : 'lazy'}
+          className={`h-full w-full object-cover transition-[transform,opacity] duration-700 ease-[var(--ease-out-expo)] group-hover:scale-[1.04] ${
             product.inStock ? '' : 'opacity-50 grayscale'
-          }`}
+          } ${alt ? 'group-hover:opacity-0' : ''}`}
         />
-        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
-          {!product.inStock && <span className="bg-ink px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-paper">Habis</span>}
-          {product.inStock && off > 0 && <span className="bg-lemon px-2 py-1 text-[11px] font-bold">-{off}%</span>}
-          {product.inStock && product.stock <= 5 && (
-            <span className="bg-paper px-2 py-1 text-[11px] font-semibold">Sisa {product.stock}</span>
-          )}
+        {alt && <img src={alt} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100" />}
+        <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1">
+          {!product.inStock && <span className="tag bg-ink px-2 py-1 text-paper">Habis</span>}
+          {product.inStock && off > 0 && <span className="tag bg-lemon px-2 py-1">-{off}%</span>}
+          {product.inStock && product.stock <= 5 && <span className="tag bg-paper px-2 py-1">Sisa {product.stock}</span>}
         </div>
+        {index != null && <span className="tag absolute right-3 top-3 text-ink/45">{String(index).padStart(2, '0')}</span>}
+        {product.inStock && (
+          <div className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-between bg-ink px-4 py-3 text-paper transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-y-0">
+            <span className="tag text-paper/70">{product.sizes.join(' · ')}</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold">Lihat <ArrowIcon size={14} /></span>
+          </div>
+        )}
       </div>
-      <div className="mt-3 space-y-1">
-        <p className="eyebrow">{product.category.name} · {GENDER_LABEL[product.gender]}</p>
-        <h3 className="text-[15px] font-medium leading-snug group-hover:underline underline-offset-4">{product.name}</h3>
-        <Price price={product.price} compareAt={product.compareAtPrice} className="text-sm" />
+      <div className="mt-3.5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="eyebrow !text-[10px]">{product.category.name} · {GENDER_LABEL[product.gender]}</p>
+          <h3 className="mt-1.5 text-[15px] font-medium leading-snug">{product.name}</h3>
+        </div>
+        <Price price={product.price} compareAt={product.compareAtPrice} className="shrink-0 flex-col !items-end !gap-0 text-sm" />
       </div>
     </Link>
   );
@@ -58,12 +69,33 @@ export function ProductCard({ product }) {
 export function ProductGridSkeleton({ count = 8 }) {
   return Array.from({ length: count }, (_, i) => (
     <div key={i}>
-      <div className="skeleton aspect-[4/5]" />
-      <div className="skeleton mt-3 h-3 w-1/3" />
+      <div className="skeleton aspect-[4/5] !bg-studio" />
+      <div className="skeleton mt-3.5 h-3 w-1/3" />
       <div className="skeleton mt-2 h-4 w-3/4" />
-      <div className="skeleton mt-2 h-4 w-1/4" />
     </div>
   ));
+}
+
+/** Teks berjalan tanpa jeda (konten digandakan supaya loop mulus). */
+export function Marquee({ items, className = '', separator = '✦', reverse = false }) {
+  const row = (hidden) => (
+    <div className="flex shrink-0 items-center" aria-hidden={hidden || undefined}>
+      {items.map((t, i) => (
+        <span key={i} className="flex items-center">
+          <span className="px-6">{t}</span>
+          <span className="text-lemon" aria-hidden="true">{separator}</span>
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <div className={`relative flex overflow-hidden whitespace-nowrap ${className}`}>
+      <div className="flex animate-marquee" style={reverse ? { animationDirection: 'reverse' } : undefined}>
+        {row(false)}
+        {row(true)}
+      </div>
+    </div>
+  );
 }
 
 const STATUS_TONE = {
@@ -98,8 +130,8 @@ export function QtyStepper({ value, onChange, min = 1, max = 99, disabled }) {
 
 export function EmptyState({ title, text, action }) {
   return (
-    <div className="border border-dashed border-line px-6 py-16 text-center">
-      <p className="text-lg font-semibold">{title}</p>
+    <div className="border border-dashed border-ink/25 bg-bone px-6 py-16 text-center">
+      <p className="display-tight text-2xl">{title}</p>
       {text && <p className="mx-auto mt-2 max-w-sm text-sm text-mute">{text}</p>}
       {action && <div className="mt-6">{action}</div>}
     </div>
