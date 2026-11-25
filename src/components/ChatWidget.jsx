@@ -157,6 +157,9 @@ export default function ChatWidget() {
     setMessages([]);
   }
 
+  // Revisi: chat tidak ditampilkan di halaman login & daftar (belum bisa dipakai sebelum login)
+  if (['/login', '/daftar'].includes(location.pathname)) return null;
+
   const outOfQuota = quota && quota.remaining <= 0;
   const disabled = streaming || outOfQuota || !aiEnabled;
 

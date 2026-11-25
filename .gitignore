@@ -11,3 +11,6 @@ data/
 # Semua varian .env berisi rahasia — hanya .env.example yang boleh masuk Git
 .env.*
 !.env.example
+
+# Foto mentah hasil generate AI (diolah dulu ke public/images)
+foto-mentah/
