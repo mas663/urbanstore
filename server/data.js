@@ -58,6 +58,49 @@ export function createSupabaseData() {
       return must(await user.client.rpc('get_sales_metrics'), 'Gagal menghitung metrik penjualan.');
     },
 
+    /* ── Pembayaran Mayar (Sesi 6) ──────────────────────────────── */
+    payments: {
+      ensure() {
+        if (!service) throw new HttpError(503, 'Pembayaran otomatis butuh SUPABASE_SECRET_KEY di environment server.');
+      },
+      /** Pesanan milik user yang login. Pakai token user → RLS menjamin tidak bisa membuka pesanan orang lain. */
+      async getOwnOrder(user, code) {
+        const row = must(await user.client.from('orders')
+          .select('id, code, status, customer_name, email, phone, shipping_method, shipping_cost, total, payment_deadline,' +
+            ' items:order_items(product_name, color, size, price, qty),' +
+            ' payment:payments(status, mayar_invoice_id, mayar_link, mayar_expired_at)')
+          .eq('code', code).maybeSingle());
+        if (!row) return null;
+        // Relasi satu-ke-satu bisa dikembalikan sebagai objek atau array → seragamkan jadi objek
+        return { ...row, payment: Array.isArray(row.payment) ? row.payment[0] || null : row.payment };
+      },
+      /** Tutup pesanan yang lewat batas 1 jam, supaya status yang dibaca selalu terbaru. */
+      async expireOverdue(user) {
+        await user.client.rpc('expire_overdue_orders');
+      },
+      async attach(orderId, { invoiceId, transactionId, link, expiredAt }) {
+        this.ensure();
+        must(await service.rpc('mayar_attach_invoice', {
+          p_order_id: orderId, p_invoice_id: invoiceId, p_transaction_id: transactionId, p_link: link, p_expired_at: expiredAt,
+        }), 'Gagal menyimpan data pembayaran.');
+      },
+      /** Dipanggil HANYA setelah status "paid" dicek langsung ke API Mayar. */
+      async markPaid(invoiceId, amount) {
+        this.ensure();
+        return must(await service.rpc('mayar_mark_paid', { p_invoice_id: invoiceId, p_amount: amount }), 'Gagal memperbarui status pesanan.');
+      },
+      /** Cari invoice Mayar milik UrbanStore dari id-id yang disebut webhook (id invoice atau id transaksi). */
+      async findInvoiceIds(ids) {
+        this.ensure();
+        const [byInvoice, byTrx] = await Promise.all([
+          service.from('payments').select('mayar_invoice_id').in('mayar_invoice_id', ids),
+          service.from('payments').select('mayar_invoice_id').in('mayar_transaction_id', ids),
+        ]);
+        const rows = [...must(byInvoice), ...must(byTrx)];
+        return [...new Set(rows.map((r) => r.mayar_invoice_id).filter(Boolean))];
+      },
+    },
+
     quota: {
       ensure() {
         if (!service) throw new HttpError(503, 'Kuota chat belum bisa dihitung: isi SUPABASE_SECRET_KEY di environment server.');

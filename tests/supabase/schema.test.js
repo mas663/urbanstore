@@ -245,3 +245,50 @@ test('jumlah terjual: publik, hanya pesanan lunas, tanpa data pribadi', async ()
   assert.deepEqual(got.map((r) => [Number(r.product_id), r.sold]), expected.map((r) => [Number(r.product_id), r.sold]));
   assert.ok(expected.length > 0, 'tes sebelumnya sudah membuat pesanan lunas');
 });
+
+test('mayar: hanya server; lunas otomatis, idempotent, nominal wajib sama, bayar telat memesan ulang stok', async () => {
+  const svc = async (sql, params = []) => {
+    await db.exec('set role service_role');
+    try { return await db.query(sql, params); } finally { await db.exec('reset role'); }
+  };
+  const ATTACH = 'select public.mayar_attach_invoice($1, $2, $3, $4, $5)';
+  const PAID = 'select public.mayar_mark_paid($1, $2) as s';
+  const later = new Date(Date.now() + 3600e3).toISOString();
+  const dimasId = await createUser(db, 'dimas@test.id');
+  const dimas = as(db, dimasId);
+  const { rows: [v] } = await db.query('select id from public.product_variants where stock >= 4 order by id limit 1');
+  const stock = async () => (await db.query('select stock from public.product_variants where id = $1', [v.id])).rows[0].stock;
+
+  await dimas('select public.add_to_cart($1, 1)', [v.id]);
+  const { r } = (await dimas(PLACE, checkout({ name: 'Dimas', email: 'dimas@test.id' }))).rows[0];
+  const { total } = (await db.query('select total from public.orders where id = $1', [r.id])).rows[0];
+
+  // Browser (customer) tidak boleh menyentuh fungsi Mayar sama sekali
+  await assert.rejects(dimas(ATTACH, [r.id, 'inv-1', 'trx-1', 'https://pay', later]), /permission denied/);
+  await assert.rejects(dimas(PAID, ['inv-1', total]), /permission denied/);
+
+  await svc(ATTACH, [r.id, 'inv-1', 'trx-1', 'https://mayar.test/pay/1', later]);
+  assert.equal((await dimas('select mayar_link from public.payments')).rows[0].mayar_link, 'https://mayar.test/pay/1');
+
+  assert.equal((await svc(PAID, ['tidak-ada', total])).rows[0].s, 'not_found');
+  assert.equal((await svc(PAID, ['inv-1', total - 1])).rows[0].s, 'amount_mismatch');
+  assert.equal((await dimas('select status from public.orders')).rows[0].status, 'menunggu_pembayaran');
+
+  assert.equal((await svc(PAID, ['inv-1', total])).rows[0].s, 'paid');
+  assert.equal((await svc(PAID, ['inv-1', total])).rows[0].s, 'already_paid'); // webhook dikirim ulang
+  const paid = (await dimas('select o.status, p.status as pay, p.paid_via from public.orders o join public.payments p on p.order_id = o.id')).rows[0];
+  assert.deepEqual(paid, { status: 'lunas', pay: 'paid', paid_via: 'mayar' });
+
+  // Bayar telat: pesanan kedaluwarsa (stok dikembalikan) → Mayar tetap lunas → stok dipesan ulang
+  await dimas('select public.add_to_cart($1, 2)', [v.id]);
+  const { r: r2 } = (await dimas(PLACE, checkout({ name: 'Dimas', email: 'dimas@test.id' }))).rows[0];
+  const afterCheckout = await stock();
+  await svc(ATTACH, [r2.id, 'inv-2', 'trx-2', 'https://mayar.test/pay/2', later]);
+  await db.query(`update public.orders set payment_deadline = now() - interval '1 minute' where id = $1`, [r2.id]);
+  await db.query('select public.expire_overdue_orders()');
+  assert.equal(await stock(), afterCheckout + 2);
+  const { total: total2 } = (await db.query('select total from public.orders where id = $1', [r2.id])).rows[0];
+  assert.equal((await svc(PAID, ['inv-2', total2])).rows[0].s, 'paid_late');
+  assert.equal(await stock(), afterCheckout);
+  assert.equal((await db.query('select status from public.orders where id = $1', [r2.id])).rows[0].status, 'lunas');
+});

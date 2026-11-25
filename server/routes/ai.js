@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler, badRequest, HttpError } from '../lib/http.js';
+import { requireUser } from '../lib/auth.js';
 import { AiError, aiStatus, assertConfigured, callAi, cleanText } from '../ai/provider.js';
 import {
   analyzeSystemPrompt, chatSystemPrompt, compactCatalog, compactSizeCharts, describeSystemPrompt, describeUserPrompt,
@@ -29,13 +30,7 @@ const quotaView = (q) => ({ limit: q.limit, used: q.used, remaining: q.remaining
 export function aiRoutes(data) {
   const r = Router();
 
-  const auth = (role) => asyncHandler(async (req, _res, next) => {
-    req.user = await data.authenticate(req);
-    if (role && req.user.role !== role) {
-      throw new HttpError(403, role === 'admin' ? 'Khusus Store Admin.' : 'AI Shopping Assistant khusus akun customer.');
-    }
-    next();
-  });
+  const auth = (role) => requireUser(data, role, role === 'admin' ? 'Khusus Store Admin.' : 'AI Shopping Assistant khusus akun customer.');
 
   // ?scope=customer | admin — dipakai UI untuk menampilkan status AI per sisi aplikasi
   r.get('/ai/status', (req, res) => res.json(aiStatus(req.query.scope === 'admin' ? 'admin' : 'customer')));

@@ -4,15 +4,19 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { errorMiddleware, HttpError, notFound } from './lib/http.js';
 import { aiRoutes } from './routes/ai.js';
+import { paymentRoutes } from './routes/payments.js';
+import { createMayarClient } from './payments/mayar.js';
+import { config } from './config.js';
 import { AiError } from './ai/provider.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * Server kecil khusus fitur AI (Sesi 5). Di Vercel berjalan sebagai Function di /api.
+ * Server kecil untuk fitur AI (Sesi 5) & payment gateway Mayar (Sesi 6). Di Vercel berjalan sebagai Function di /api.
  * Katalog, keranjang, pesanan & auth ditangani frontend langsung ke Supabase (RLS).
+ * `mayar` & `webhookSecret` bisa diganti saat testing (klien Mayar palsu).
  */
-export function createApp(data, { serveStatic = false } = {}) {
+export function createApp(data, { serveStatic = false, mayar = createMayarClient(config.mayar), webhookSecret = config.mayar.webhookSecret } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', true);
@@ -25,6 +29,7 @@ export function createApp(data, { serveStatic = false } = {}) {
 
   const api = express.Router();
   api.get('/health', (_req, res) => res.json({ ok: true }));
+  api.use('/', paymentRoutes(data, mayar, { webhookSecret }));
   api.use('/', aiRoutes(data));
   api.use((_req, _res, next) => next(notFound('Endpoint tidak ditemukan')));
   app.use('/api', api);

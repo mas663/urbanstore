@@ -20,6 +20,7 @@ Browser (React) ──► Supabase  (katalog, keranjang, pesanan, auth, storage 
 2. **Buat tabel:** Dashboard → **SQL Editor** → *New query* → paste isi [`supabase/migrations/001_schema.sql`](supabase/migrations/001_schema.sql) → **Run**.
 3. **Isi data contoh:** query baru → paste isi [`supabase/seed.sql`](supabase/seed.sql) → **Run** (14 produk + varian).
    - **Fitur engagement:** query baru → paste isi [`supabase/migrations/002_engagement.sql`](supabase/migrations/002_engagement.sql) → **Run** (tabel wishlist + jumlah terjual).
+   - **Payment gateway Mayar:** query baru → paste isi [`supabase/migrations/003_mayar.sql`](supabase/migrations/003_mayar.sql) → **Run**.
 4. **Auth:** Dashboard → **Authentication → Sign In / Providers → Email**:
    - Untuk development, matikan **Confirm email** supaya bisa langsung login setelah daftar. Kalau tetap aktif, user harus klik link konfirmasi di email dulu.
    - **Authentication → URL Configuration**: isi *Site URL* dengan `http://localhost:5173`. Setelah deploy, ganti dengan domain Vercel dan tambahkan juga ke *Redirect URLs*.
@@ -58,7 +59,7 @@ npm run dev        # web http://localhost:5173 + server AI :3001
 | Perintah | Fungsi |
 |---|---|
 | `npm run dev` | Development (Vite + server AI) |
-| `npm test` | 35 tes: skema Supabase di Postgres lokal (PGlite) + endpoint AI |
+| `npm test` | 45 tes: skema Supabase di Postgres lokal (PGlite) + endpoint AI |
 | `npm run build` | Build production ke `dist/` |
 | `npm run seed:sql` | Generate ulang `supabase/seed.sql` dari `scripts/seed-data.js` |
 | `npm run wilayah` | Unduh ulang data provinsi/kota/kecamatan ke `public/wilayah` |
@@ -72,6 +73,19 @@ npm run dev        # web http://localhost:5173 + server AI :3001
 4. Di Supabase → Authentication → URL Configuration: ganti *Site URL* ke `https://<app>.vercel.app` dan tambahkan ke *Redirect URLs*.
 
 ---
+
+## Payment Gateway Mayar.id (Sesi 6)
+
+Alur: **Checkout → server membuat invoice Mayar → customer bayar (QRIS / VA / e-wallet) → webhook → server cek ulang status ke API Mayar → pesanan otomatis Lunas.** Transfer manual tetap ada sebagai cadangan.
+
+1. Jalankan `supabase/migrations/003_mayar.sql` di SQL Editor Supabase.
+2. **Sandbox (uji coba):** buat akun di https://web.mayar.io → **API Keys** → key *Read & Write*. Isi `.env`: `MAYAR_API_KEY=...`, `MAYAR_ENV=sandbox`. (Produksi: https://web.mayar.id + `MAYAR_ENV=production`.)
+3. `MAYAR_WEBHOOK_SECRET` = string acak (sudah dibuat otomatis di `.env` lokal).
+4. Di dashboard Mayar → **Integration → Webhook**, isi URL:
+   `https://<domain>/api/webhook/mayar?token=<MAYAR_WEBHOOK_SECRET>` → Save & Test.
+5. Vercel → Settings → Environment Variables: tambahkan `MAYAR_API_KEY`, `MAYAR_ENV`, `MAYAR_WEBHOOK_SECRET` → redeploy.
+
+Keamanan: API key hanya di server. Mayar belum menyediakan signature webhook, jadi webhook hanya dipakai sebagai *pemicu* — status "paid" & nominal selalu diverifikasi ulang lewat `GET /invoices/{id}` sebelum pesanan ditandai lunas (fungsi `mayar_mark_paid` hanya bisa dipanggil server). Saat development di localhost (webhook tidak bisa menjangkau komputer kita), halaman pesanan mengecek status otomatis ketika customer kembali dari halaman Mayar.
 
 ## Fitur
 
@@ -115,7 +129,7 @@ api/index.js            Vercel Function → server/app.js
 docs/                   PRD (md + html), audit routing
 public/wilayah/         data provinsi/kota/kecamatan (statis)
 server/                 endpoint AI (Express), provider Gemini/9Router, prompt
-supabase/               migrations/001_schema.sql, 002_engagement.sql, seed.sql
+supabase/               migrations/001_schema.sql, 002_engagement.sql, 003_mayar.sql, seed.sql
 src/
   lib/                  supabase client, catalog, api AI, kompres gambar, invoice PDF
   context/              Auth (Supabase), Cart, Toast

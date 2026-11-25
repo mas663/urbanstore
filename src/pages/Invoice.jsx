@@ -8,6 +8,8 @@ import { useAuth, useToast } from '../context/AppContext.jsx';
 import { CopyIcon, RefreshIcon } from '../components/icons.jsx';
 import { ErrorState, StatusBadge } from '../components/ui.jsx';
 import { resolveImage } from '../lib/productImages.js';
+import { startMayarPayment, syncMayarPayment, useMayarEnabled } from '../lib/payments.js';
+import { ArrowIcon } from '../components/icons.jsx';
 
 export const ORDER_SELECT =
   '*, items:order_items(*), payment:payments(*), history:order_status_history(status, note, created_at)';
@@ -21,7 +23,7 @@ const TIMELINE = [
 ];
 
 const MESSAGE = {
-  menunggu_pembayaran: 'Transfer sesuai total di bawah, lalu upload bukti transfer sebelum waktu habis.',
+  menunggu_pembayaran: 'Selesaikan pembayaran sebelum waktu habis: bayar instan lewat QRIS / Virtual Account / e-wallet, atau transfer manual lalu upload bukti.',
   menunggu_verifikasi: 'Makasih! Bukti transfer kamu sudah masuk. Admin lagi ngecek, status akan berubah jadi Lunas setelah diverifikasi.',
   lunas: 'Pembayaran sudah dikonfirmasi. Pesanan kamu lagi disiapkan.',
   dikirim: 'Pesanan kamu lagi dalam perjalanan.',
@@ -54,6 +56,20 @@ function useCountdown(deadline, active, onExpire) {
 
 const pad = (n) => String(n).padStart(2, '0');
 
+/** Bungkus bagian transfer manual: dilipat (details) kalau ada opsi bayar instan, terbuka kalau tidak. */
+function ManualWrap({ collapsed, children }) {
+  if (!collapsed) return children;
+  return (
+    <details className="group mt-6 border border-line">
+      <summary className="flex cursor-pointer list-none items-center justify-between p-5 font-semibold [&::-webkit-details-marker]:hidden">
+        Atau transfer manual & upload bukti
+        <span className="text-xl leading-none transition-transform group-open:rotate-45">+</span>
+      </summary>
+      <div className="px-5 pb-5 [&>section:first-child]:mt-0">{children}</div>
+    </details>
+  );
+}
+
 export default function Invoice() {
   const { code } = useParams();
   const [params] = useSearchParams();
@@ -67,6 +83,9 @@ export default function Invoice() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
+  const mayarEnabled = useMayarEnabled();
+  const [payBusy, setPayBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -97,6 +116,34 @@ export default function Invoice() {
   const msLeft = useCountdown(order?.payment_deadline, waiting, onExpire);
 
   useEffect(() => () => file?.previewUrl && URL.revokeObjectURL(file.previewUrl), [file]);
+
+  /* Cek status Mayar: saat halaman dibuka & setiap kali customer kembali ke tab ini dari halaman bayar.
+     Webhook tetap jalur utama; ini cadangan kalau webhook terlambat (atau saat development di localhost). */
+  const hasMayarInvoice = Boolean(order?.payment?.mayar_invoice_id);
+  const checkMayar = useCallback(async ({ silent = true } = {}) => {
+    setSyncing(true);
+    try {
+      const r = await syncMayarPayment(code);
+      if (r.result === 'paid' || r.result === 'paid_late' || r.result === 'already_paid') {
+        toast('Pembayaran diterima! Pesanan kamu sekarang Lunas.');
+        await load();
+      } else if (!silent) {
+        toast(r.mayarStatus === 'paid' ? 'Pembayaran sedang diproses, cek lagi sebentar ya.' : 'Pembayaran belum terdeteksi. Selesaikan dulu di halaman Mayar ya.');
+      }
+    } catch (err) {
+      if (!silent) toast(err.message, 'error');
+    } finally {
+      setSyncing(false);
+    }
+  }, [code, load, toast]);
+
+  useEffect(() => {
+    if (!waiting || !hasMayarInvoice) return;
+    checkMayar();
+    const onVisible = () => document.visibilityState === 'visible' && checkMayar();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [waiting, hasMayarInvoice, checkMayar]);
 
   if (!ready) return null;
   if (!user) return <Navigate to={`/login?next=${encodeURIComponent(`/pesanan/${code}`)}`} replace />;
@@ -131,6 +178,16 @@ export default function Invoice() {
       setUploadError(err.message);
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function payWithMayar() {
+    setPayBusy(true);
+    try {
+      await startMayarPayment(order.code); // pindah ke halaman Mayar
+    } catch (err) {
+      toast(err.message, 'error');
+      setPayBusy(false);
     }
   }
 
@@ -213,6 +270,34 @@ export default function Invoice() {
         </section>
       )}
 
+      {/* Bayar instan via Mayar (Sesi 6) */}
+      {waiting && msLeft > 0 && mayarEnabled && (
+        <section className="mt-6 border-2 border-ink bg-lemon p-6">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div>
+              <p className="tag">Rekomendasi · Otomatis</p>
+              <p className="display-tight mt-2 text-2xl">Bayar instan {rupiah(order.total)}</p>
+              <p className="mt-1 text-sm text-ink/70">QRIS · Virtual Account (BCA, BNI, BRI, Mandiri, dll.) · DANA · GoPay · ShopeePay. Status langsung Lunas tanpa upload bukti.</p>
+            </div>
+            <button className="btn-primary h-14 px-8" onClick={payWithMayar} disabled={payBusy}>
+              {payBusy ? 'Membuka Mayar…' : <>{hasMayarInvoice ? 'Lanjutkan Pembayaran' : 'Bayar Sekarang'} <ArrowIcon size={18} /></>}
+            </button>
+          </div>
+          {hasMayarInvoice && (
+            <p className="mt-4 border-t border-ink/20 pt-3 text-sm">
+              Sudah bayar?{' '}
+              <button className="font-semibold underline underline-offset-4" onClick={() => checkMayar({ silent: false })} disabled={syncing}>
+                {syncing ? 'Mengecek…' : 'Cek status pembayaran'}
+              </button>
+            </p>
+          )}
+          <p className="mt-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink/60">Diproses aman oleh Mayar.id</p>
+        </section>
+      )}
+
+      {/* Transfer manual: dilipat jadi alternatif kalau Mayar tersedia */}
+      {canUpload && (
+      <ManualWrap collapsed={mayarEnabled && waiting}>
       {/* Info rekening & transfer */}
       {canUpload && (
         <section className="mt-6 bg-ink p-6 text-paper">
@@ -268,6 +353,8 @@ export default function Invoice() {
             </p>
           )}
         </section>
+      )}
+      </ManualWrap>
       )}
 
       {/* Invoice */}

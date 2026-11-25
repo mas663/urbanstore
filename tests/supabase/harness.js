@@ -33,6 +33,7 @@ export async function createDb() {
   await db.exec(fs.readFileSync(path.join(root, 'supabase/seed.sql'), 'utf8'));
   // Migrasi lanjutan dijalankan berurutan, sama seperti di SQL Editor Supabase
   await db.exec(fs.readFileSync(path.join(root, 'supabase/migrations/002_engagement.sql'), 'utf8'));
+  await db.exec(fs.readFileSync(path.join(root, 'supabase/migrations/003_mayar.sql'), 'utf8'));
   return db;
 }
 

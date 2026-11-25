@@ -38,6 +38,19 @@ export const config = {
     model: env.AI_MODEL || '',
     timeoutMs: 15000,
   },
+  // Payment gateway Mayar.id (Sesi 6). Key HANYA di server — jangan pernah diberi prefix VITE_.
+  mayar: {
+    apiKey: env.MAYAR_API_KEY || '',
+    // sandbox = uji coba (web.mayar.io, tanpa uang sungguhan) · production = transaksi nyata (web.mayar.id)
+    env: (env.MAYAR_ENV || 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox',
+    get baseUrl() {
+      return (env.MAYAR_BASE_URL || (this.env === 'production' ? 'https://api.mayar.id/hl/v2' : 'https://api.mayar.io/hl/v2')).replace(/\/+$/, '');
+    },
+    // Rahasia di URL webhook (?token=...). Mayar belum menyediakan signature, jadi ini lapisan pertama
+    // penyaring; lapisan utamanya: server selalu cek ulang status ke API Mayar sebelum menandai lunas.
+    webhookSecret: env.MAYAR_WEBHOOK_SECRET || '',
+    timeoutMs: 15000,
+  },
   chatQuota: {
     limit: int(env.CHAT_QUOTA_LIMIT, 5),
     windowSeconds: int(env.CHAT_QUOTA_WINDOW_HOURS, 12) * 60 * 60,

@@ -5,6 +5,7 @@ import { BANK, SHIPPING } from '../lib/catalog.js';
 import { rupiah } from '../lib/format.js';
 import { useAuth, useCart, useToast } from '../context/AppContext.jsx';
 import RegionSelect from '../components/RegionSelect.jsx';
+import { startMayarPayment, useMayarEnabled } from '../lib/payments.js';
 import { EmptyState, Field } from '../components/ui.jsx';
 
 const STEPS = ['Data Pengiriman', 'Pengiriman & Bayar', 'Review'];
@@ -32,6 +33,9 @@ export default function Checkout() {
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const mayarEnabled = useMayarEnabled();
+  // Pilihan metode bayar: 'mayar' (otomatis) atau 'manual' (transfer + upload bukti)
+  const [payMethod, setPayMethod] = useState('mayar');
   const [form, setForm] = useState({
     name: '', phone: '', email: '', address: '', postalCode: '', notes: '', shippingMethod: 'regular',
     region: { provinceId: '', province: '', cityId: '', city: '', districtId: '', district: '' },
@@ -94,6 +98,15 @@ export default function Checkout() {
         p_shipping: form.shippingMethod,
       }));
       reset();
+      if (mayarEnabled && payMethod === 'mayar') {
+        try {
+          await startMayarPayment(result.code); // pindah ke halaman bayar Mayar
+          return;
+        } catch (err) {
+          // Pesanan sudah tersimpan; customer tetap bisa bayar dari halaman pesanan
+          toast(`${err.message} Kamu bisa coba bayar lagi dari halaman pesanan.`, 'error');
+        }
+      }
       navigate(`/pesanan/${result.code}?baru=1`, { replace: true });
     } catch (err) {
       setSubmitting(false);
@@ -182,12 +195,28 @@ export default function Checkout() {
               </div>
               <div>
                 <h2 className="display-tight text-2xl">Metode pembayaran</h2>
-                <div className="mt-4 border border-ink bg-soft p-4">
-                  <p className="font-semibold">Transfer Bank {BANK.name} (Manual)</p>
-                  <p className="mt-1 text-sm text-mute">
-                    Setelah order dibuat, kamu punya waktu <b className="text-ink">1 jam</b> untuk transfer dan upload bukti transfer.
-                    Lewat dari itu, pesanan dibatalkan otomatis.
-                  </p>
+                <div className="mt-4 grid gap-2" role="radiogroup" aria-label="Metode pembayaran">
+                  {[
+                    mayarEnabled && { id: 'mayar', title: 'Bayar instan · QRIS, Virtual Account, E-Wallet', tag: 'Otomatis',
+                      text: 'Diproses Mayar.id. Status pesanan langsung jadi Lunas begitu pembayaran berhasil — tanpa upload bukti.' },
+                    { id: 'manual', title: `Transfer Bank ${BANK.name} (Manual)`, tag: 'Manual',
+                      text: 'Transfer lalu upload bukti transfer. Admin memverifikasi secara manual.' },
+                  ].filter(Boolean).map((m) => {
+                    const active = (mayarEnabled ? payMethod : 'manual') === m.id;
+                    return (
+                      <button key={m.id} type="button" role="radio" aria-checked={active} onClick={() => setPayMethod(m.id)}
+                        className={`flex items-start gap-3 border p-4 text-left transition-colors ${active ? 'border-ink bg-lemon/30' : 'border-line hover:border-ink'}`}>
+                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-ink`} aria-hidden="true">
+                          {active && <span className="h-2.5 w-2.5 rounded-full bg-ink" />}
+                        </span>
+                        <span className="flex-1">
+                          <span className="flex flex-wrap items-center gap-2 font-semibold">{m.title}<span className="tag bg-ink px-1.5 py-0.5 text-paper">{m.tag}</span></span>
+                          <span className="mt-1 block text-sm text-mute">{m.text}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <p className="text-xs text-mute">Batas bayar <b className="text-ink">1 jam</b> setelah order dibuat. Lewat dari itu, pesanan dibatalkan otomatis.</p>
                 </div>
               </div>
             </section>
@@ -223,7 +252,7 @@ export default function Checkout() {
               <button className="btn-primary flex-1 sm:flex-none sm:px-10" onClick={next}>Lanjut</button>
             ) : (
               <button className="btn-primary flex-1 sm:flex-none sm:px-10" onClick={placeOrder} disabled={submitting || cart.hasIssues}>
-                {submitting ? 'Memproses pesanan…' : `Checkout · ${rupiah(total)}`}
+                {submitting ? (mayarEnabled && payMethod === 'mayar' ? 'Membuka halaman pembayaran…' : 'Memproses pesanan…') : `${mayarEnabled && payMethod === 'mayar' ? 'Bayar Sekarang' : 'Checkout'} · ${rupiah(total)}`}
               </button>
             )}
           </div>
