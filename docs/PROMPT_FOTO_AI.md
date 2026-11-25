@@ -1,53 +1,56 @@
 # Paket Prompt Foto AI — UrbanStore
 
-Panduan membuat **30 foto** (produk + editorial) untuk desain baru UrbanStore memakai Claude di sesi chat terpisah.
-Semua foto memakai *art direction* yang sama, jadi hasilnya terlihat seperti **satu sesi pemotretan brand**.
+Panduan membuat foto produk & editorial untuk desain baru UrbanStore memakai **generator gambar AI apa pun** (disarankan: Gemini).
+Semua prompt memakai *art direction* yang sama, jadi hasilnya terlihat seperti **satu sesi pemotretan brand**.
+
+> **Foto tidak memblokir apa pun.** Website sudah live dan desain baru tetap tampil rapi tanpa foto (slot kosong otomatis memakai ilustrasi bawaan). Foto hanya menaikkan kesan visual, jadi kerjakan bertahap sesuai kuota.
 
 ---
 
 ## 1. Tutorial singkat
 
-### Yang perlu disiapkan
-- **Tidak perlu skill tambahan.** Yang dibutuhkan hanya **konektor Canva** yang aktif di akun claude.ai kamu (Canva punya alat *generate image*).
-  - Cek: claude.ai → **Settings → Connectors** → pastikan **Canva** tersambung.
-  - Di chat baru, klik ikon **+ / Search and tools** di kolom pesan → pastikan **Canva** dicentang.
-- Kalau Claude di sesi itu bilang tidak bisa membuat gambar, berarti konektornya belum aktif di chat tersebut. Aktifkan lalu kirim ulang.
-- Alternatif kalau kuota Canva habis: tempel prompt yang sama di generator gambar lain (ChatGPT, Gemini, Ideogram, dsb.). Prompt-nya ditulis umum, jadi tetap berlaku.
+### Pilih alat (cukup salah satu)
+| Alat | Catatan |
+|---|---|
+| **Gemini** — [gemini.google.com](https://gemini.google.com) | **Disarankan.** Gratis dengan kuota harian, bagus untuk foto produk. Login akun Google, langsung tempel prompt. |
+| ChatGPT / Microsoft Designer | Gratis, kuota lebih kecil. |
+| Claude + konektor Canva | Kena kuota AI bulanan Canva (reset tiap tanggal 1). |
+
+Claude sendiri **tidak bisa** membuat foto tanpa alat tambahan.
 
 ### Langkah kerja
-1. Buka **chat baru** di claude.ai, aktifkan Canva.
-2. Kirim **pesan pembuka** di bawah ini (sekali saja).
-3. Kirim **satu prompt per pesan** (salin blok prompt apa adanya, jangan diubah).
-4. Klik link **"Open generated image"** → di Canva, **Download** (format JPG/PNG, ukuran terbesar).
-5. Ganti nama file **persis** seperti kolom *Nama file* lalu simpan ke folder:
+1. Buka chat baru di alat pilihanmu, kirim **pesan pembuka** di bawah (sekali saja).
+2. Kirim **satu prompt per pesan** (salin blok prompt apa adanya).
+3. **Download** gambar ukuran terbesar (JPG/PNG).
+4. Ganti nama file **persis** seperti judul prompt, simpan ke:
    ```
    Project/urbanstore/foto-mentah/
    ```
-   (Folder ini ter-ignore Git. Saya yang akan mengompres, mengubah ke WebP, dan memindahkannya ke `public/images/`.)
-6. Kalau hasilnya kurang pas (tangan aneh, ada tulisan/logo, warna salah), minta di chat itu: **"ulangi, ikuti prompt yang sama"**.
-7. Setelah selesai (atau sebagian), kabari saya: *"foto sudah di foto-mentah"*.
+   Folder ini ter-ignore Git. Saya yang mengompres, memotong ke rasio yang benar, mengubah ke WebP, dan memindahkannya ke `public/images/`.
+5. Kabari saya: *"foto sudah di foto-mentah"*. Boleh sebagian, tidak harus lengkap.
 
 ### Pesan pembuka (kirim pertama kali)
 ```
-Saya akan mengirim beberapa prompt foto untuk website fashion saya. Untuk setiap pesan berikutnya:
-gunakan alat generate image Canva, pakai prompt saya PERSIS apa adanya, satu gambar per pesan,
-dan gunakan rasio yang tertulis di akhir prompt (contoh "Aspect ratio 4:5" → PORTRAIT_4_5).
-Tidak perlu menjelaskan panjang, cukup tampilkan gambarnya dan link Canva-nya.
+Saya akan mengirim beberapa prompt foto produk untuk website fashion saya.
+Untuk setiap pesan berikutnya: buat SATU gambar persis sesuai prompt, dengan rasio
+yang tertulis di akhir prompt. Tidak perlu penjelasan, cukup tampilkan gambarnya.
 ```
 
-### Prioritas (kalau kuota terbatas, kerjakan berurutan)
-| Prioritas | Jumlah | Isi |
-|---|---|---|
-| **A. Wajib** | 16 | 14 foto produk + hero utama + lookbook |
-| **B. Disarankan** | 5 | hero kedua + 4 foto kategori |
-| **C. Opsional** | 9 | 6 foto produk dipakai model + brand story + size guide + CTA |
+### Standar "cukup bagus untuk dipakai" — jangan kejar sempurna
+- **Maksimal 2× ulang per foto.** Kalau masih meleset, ambil hasil terbaik dan lanjut.
+- **Rasio tidak harus pas.** Asal produk utuh dan ada ruang kosong di sekelilingnya, saya yang memotongnya ke 4:5 / 16:9 / 1:1.
+- **Wajib ditolak hanya kalau:** ada tulisan/logo/watermark aneh, warna produk jelas salah (misal olive jadi cokelat), atau tangan/wajah rusak.
+- **Celana longgar & tote** sering melenceng dengan *ghost mannequin*. Kalau gagal 2×, ganti kalimat `Invisible ghost mannequin, front view` menjadi `Neatly arranged flat lay, top-down view`.
 
-### Cek kualitas sebelum menyimpan
-- [ ] Tidak ada **tulisan, logo, atau watermark** di foto (kecuali dibuat sendiri)
-- [ ] **Warna** produk sesuai (hitam = hitam pekat, krem = krem hangat, olive = hijau zaitun)
-- [ ] Tangan, jari, wajah terlihat **wajar**
-- [ ] Produk **utuh**, tidak terpotong, ada ruang kosong di sekelilingnya
-- [ ] Latar studio **abu terang hangat** yang sama di semua foto produk
+### Urutan kerja
+| Tahap | Jumlah | Isi | Kapan |
+|---|---|---|---|
+| **A. Inti** | 15 | 14 foto produk + `hero-1` | Kerjakan dulu — ini yang paling terlihat |
+| A+. Lookbook | 1 | `lookbook` (fitur Shop the Look) | Setelah A selesai |
+| B. Disarankan | 5 | hero kedua + 4 foto kategori | Kalau masih ada kuota |
+| C. Opsional | 9 | foto produk dipakai model, story, size guide, CTA | Boleh dilewati |
+
+Batasi waktunya: satu sesi singkat per hari sampai tahap A beres, sisanya tidak wajib.
 
 ---
 
