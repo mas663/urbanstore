@@ -1,0 +1,23 @@
+{
+  "products": {
+    "essential-boxy-tee": {
+      "main": "/images/products/essential-boxy-tee.webp"
+    },
+    "linen-relaxed-shirt": {
+      "main": "/images/products/linen-relaxed-shirt.webp"
+    },
+    "mono-graphic-tee": {
+      "main": "/images/products/mono-graphic-tee.webp"
+    },
+    "urban-oversized-heavy-tee": {
+      "main": "/images/products/urban-oversized-heavy-tee.webp"
+    }
+  },
+  "editorial": {},
+  "legacy": {
+    "/products/oversized-tee-black.svg": "/images/products/urban-oversized-heavy-tee.webp",
+    "/products/boxy-tee-white.svg": "/images/products/essential-boxy-tee.webp",
+    "/products/graphic-tee-grey.svg": "/images/products/mono-graphic-tee.webp",
+    "/products/linen-shirt-cream.svg": "/images/products/linen-relaxed-shirt.webp"
+  }
+}

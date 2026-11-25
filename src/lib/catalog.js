@@ -1,4 +1,5 @@
 import { run, supabase } from './supabase.js';
+import { resolveImage } from './productImages.js';
 
 export const SIZE_ORDER = ['S', 'M', 'L', 'XL', 'All Size'];
 const bySize = (a, b) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b);
@@ -21,7 +22,7 @@ export function normalizeProduct(row) {
     compareAtPrice: row.compare_at_price,
     material: row.material,
     description: row.description,
-    imageUrl: row.image_url,
+    imageUrl: resolveImage(row.image_url),
     isFeatured: row.is_featured,
     isActive: row.is_active,
     createdAt: row.created_at,

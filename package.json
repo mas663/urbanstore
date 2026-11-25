@@ -15,7 +15,8 @@
     "docs:prd": "node scripts/build-prd-html.mjs",
     "images": "node scripts/generate-product-images.mjs",
     "wilayah": "node scripts/fetch-wilayah.mjs",
-    "vercel:env": "node scripts/export-vercel-env.mjs"
+    "vercel:env": "node scripts/export-vercel-env.mjs",
+    "photos": "node scripts/process-photos.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
@@ -31,6 +32,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.6",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.5",
     "vite": "^7.1.0"
   },

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { friendlyError, run, supabase } from '../lib/supabase.js';
+import { resolveImage } from '../lib/productImages.js';
 
 /* ── Toast ─────────────────────────────────────────────── */
 const ToastCtx = createContext(null);
@@ -123,7 +124,7 @@ function shapeCart(rows) {
     else if (v.stock === 0) issue = 'Yah, varian ini habis.';
     else if (r.qty > v.stock) issue = `Stok cuma tersisa ${v.stock} pcs.`;
     return {
-      id: r.id, variantId: v.id, productId: p.id, slug: p.slug, name: p.name, imageUrl: p.image_url,
+      id: r.id, variantId: v.id, productId: p.id, slug: p.slug, name: p.name, imageUrl: resolveImage(p.image_url),
       color: v.color, size: v.size, price: p.price, qty: r.qty, stock: v.stock, lineTotal: p.price * r.qty, issue,
     };
   });

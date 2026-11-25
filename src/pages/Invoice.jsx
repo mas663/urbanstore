@@ -7,6 +7,7 @@ import { compressImage, formatBytes } from '../lib/image.js';
 import { useAuth, useToast } from '../context/AppContext.jsx';
 import { CopyIcon, RefreshIcon } from '../components/icons.jsx';
 import { ErrorState, StatusBadge } from '../components/ui.jsx';
+import { resolveImage } from '../lib/productImages.js';
 
 export const ORDER_SELECT =
   '*, items:order_items(*), payment:payments(*), history:order_status_history(status, note, created_at)';
@@ -287,7 +288,7 @@ export default function Invoice() {
             <ul className="divide-y divide-line border-y border-line">
               {order.items.map((i) => (
                 <li key={i.id} className="flex gap-4 py-4">
-                  <img src={i.image_url} alt="" className="h-20 w-16 bg-soft object-cover" />
+                  <img src={resolveImage(i.image_url)} alt="" className="h-20 w-16 bg-soft object-cover" />
                   <div className="flex-1 text-sm">
                     <p className="font-medium">{i.product_name}</p>
                     <p className="text-mute">{i.color} · Size {i.size} · {i.qty} × {rupiah(i.price)}</p>
