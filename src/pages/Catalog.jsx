@@ -63,56 +63,68 @@ export default function Catalog() {
   const activeCat = categories.find((c) => c.slug === category);
 
   return (
-    <div className="container-x py-10 lg:py-14">
-      <div className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="eyebrow">Katalog Kurasi</p>
-          <h1 className="mt-3 text-4xl font-extrabold tracking-tight sm:text-5xl">
-            {title}{activeCat && <span className="text-mute"> / {activeCat.name}</span>}
-          </h1>
+    <div>
+      <section className="border-b border-ink">
+        <div className="container-x pb-8 pt-10 lg:pb-12 lg:pt-16">
+          <p className="eyebrow">Katalog kurasi{activeCat ? ` · ${activeCat.name}` : ''}</p>
+          <div className="mt-5 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <h1 className="display text-[clamp(2.6rem,8vw,7rem)]">
+              {title}
+              <sup className="ml-3 align-top font-mono text-sm font-medium tracking-normal text-mute sm:text-base">
+                {products ? String(products.length).padStart(2, '0') : '··'}
+              </sup>
+            </h1>
+            <label className="relative block w-full lg:w-96">
+              <span className="sr-only">Cari produk</span>
+              <SearchIcon className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-ink" size={20} />
+              <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari tee, hoodie, cargo…"
+                className="h-14 w-full border-0 border-b-2 border-ink bg-transparent pl-9 text-lg placeholder:text-mute/60 focus:border-lemon focus:outline-none" />
+            </label>
+          </div>
         </div>
-        <label className="relative block w-full lg:w-80">
-          <span className="sr-only">Cari produk</span>
-          <SearchIcon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-mute" size={18} />
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari tee, hoodie, cargo…" className="input pl-11" />
-        </label>
-      </div>
+      </section>
 
-      <div className="mt-6 flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-2" role="group" aria-label="Filter gender">
+      <div className="sticky top-16 z-30 border-b border-line bg-paper/92 backdrop-blur-md">
+        <div className="container-x flex items-center gap-3 py-3">
+          <div className="flex shrink-0 border border-ink" role="group" aria-label="Filter gender">
             {GENDERS.map((g) => (
-              <button key={g.value} className={`chip ${gender === g.value ? 'chip-active' : ''}`}
-                aria-pressed={gender === g.value} onClick={() => setParam('gender', g.value)}>
+              <button key={g.value} aria-pressed={gender === g.value} onClick={() => setParam('gender', g.value)}
+                className={`h-9 px-3.5 text-sm font-medium transition-colors sm:px-4 ${gender === g.value ? 'bg-ink text-paper' : 'hover:bg-lemon'}`}>
                 {g.label}
               </button>
             ))}
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-mute">Urutkan</span>
+          <div className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto" role="group" aria-label="Filter kategori">
+            <button className={`chip ${!category ? 'chip-active' : ''}`} onClick={() => setParam('category', '')}>Semua jenis</button>
+            {categories.map((c) => (
+              <button key={c.slug} className={`chip ${category === c.slug ? 'chip-active' : ''}`}
+                aria-pressed={category === c.slug} onClick={() => setParam('category', c.slug)}>
+                {c.name}
+              </button>
+            ))}
+          </div>
+          <label className="hidden shrink-0 items-center gap-2 text-sm md:flex">
+            <span className="eyebrow">Urutkan</span>
             <select value={sort} onChange={(e) => setParam('sort', e.target.value)}
               className="h-9 border border-line bg-paper px-3 text-sm focus:border-ink focus:outline-none">
               {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </label>
         </div>
-        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Filter kategori">
-          <button className={`chip ${!category ? 'chip-active' : ''}`} onClick={() => setParam('category', '')}>Semua jenis</button>
-          {categories.map((c) => (
-            <button key={c.slug} className={`chip ${category === c.slug ? 'chip-active' : ''}`}
-              aria-pressed={category === c.slug} onClick={() => setParam('category', c.slug)}>
-              {c.name}
-            </button>
-          ))}
-        </div>
       </div>
 
-      <p className="mt-8 text-sm text-mute" aria-live="polite">
-        {products ? `${products.length} produk${q ? ` untuk "${q}"` : ''}` : 'Memuat produk…'}
-      </p>
+      <div className="container-x">
+        <div className="flex items-center justify-between gap-3 py-6">
+          <p className="font-mono text-xs uppercase tracking-[0.1em] text-mute" aria-live="polite">
+            {products ? `${products.length} produk${q ? ` untuk "${q}"` : ''}` : 'Memuat produk…'}
+          </p>
+          <select value={sort} onChange={(e) => setParam('sort', e.target.value)} aria-label="Urutkan"
+            className="h-9 border border-line bg-paper px-3 text-sm focus:border-ink focus:outline-none md:hidden">
+            {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
 
-      <div className="mt-4">
         {error ? (
           <ErrorState message={error} onRetry={() => setReload((n) => n + 1)} />
         ) : products && products.length === 0 ? (
@@ -121,7 +133,7 @@ export default function Catalog() {
             action={<button className="btn-outline" onClick={() => setParams({})}>Reset filter</button>} />
         ) : (
           <div className="grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-5 md:grid-cols-3 xl:grid-cols-4">
-            {products ? products.map((p) => <ProductCard key={p.id} product={p} />) : <ProductGridSkeleton />}
+            {products ? products.map((p, i) => <ProductCard key={p.id} product={p} index={i + 1} priority={i < 4} />) : <ProductGridSkeleton />}
           </div>
         )}
       </div>

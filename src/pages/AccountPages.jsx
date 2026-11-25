@@ -5,18 +5,34 @@ import { ORDER_STATUS } from '../lib/catalog.js';
 import { formatDate, rupiah } from '../lib/format.js';
 import { useAuth } from '../context/AppContext.jsx';
 import { EmptyState, ErrorState, Field, StatusBadge } from '../components/ui.jsx';
+import { editorialImage } from '../lib/productImages.js';
 
 // Hanya izinkan redirect internal (mencegah open redirect)
 const safeNext = (v, fallback = '/') => (v && v.startsWith('/') && !v.startsWith('//') ? v : fallback);
 
 function AuthShell({ eyebrow, title, children, footer }) {
+  const photo = editorialImage('lookbook') || editorialImage('hero-1');
   return (
-    <div className="container-x flex justify-center py-14 sm:py-20">
-      <div className="w-full max-w-md">
-        <p className="eyebrow">{eyebrow}</p>
-        <h1 className="mt-3 text-4xl font-extrabold tracking-tight">{title}</h1>
-        <div className="mt-8">{children}</div>
-        {footer && <div className="mt-8 border-t border-line pt-6 text-sm text-mute">{footer}</div>}
+    <div className="grid min-h-[calc(100vh-6rem)] lg:grid-cols-2">
+      {/* Panel visual (desktop) */}
+      <div className="relative hidden overflow-hidden bg-ink lg:block">
+        {photo && <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover opacity-90" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-10 text-paper">
+          <p className="eyebrow !text-paper/60">UrbanStore · Drop 01</p>
+          <p className="display mt-4 text-[clamp(2.4rem,4vw,4rem)]">Find your<br />everyday <span className="text-lemon">style.</span></p>
+          <ul className="mt-8 grid grid-cols-3 gap-4 border-t border-paper/25 pt-5 font-mono text-[11px] uppercase tracking-[0.08em] text-paper/70">
+            <li>Keranjang tersimpan</li><li>Invoice PDF</li><li>Urban Assistant</li>
+          </ul>
+        </div>
+      </div>
+      <div className="flex items-center justify-center px-4 py-14 sm:px-8 sm:py-20">
+        <div className="w-full max-w-md">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1 className="display mt-4 text-[clamp(2.6rem,6vw,4rem)]">{title}</h1>
+          <div className="mt-10">{children}</div>
+          {footer && <div className="mt-8 border-t border-line pt-6 text-sm text-mute">{footer}</div>}
+        </div>
       </div>
     </div>
   );
@@ -174,7 +190,7 @@ export function MyOrders() {
   return (
     <div className="container-x max-w-3xl py-10 lg:py-14">
       <p className="eyebrow">Halo, {user.name.split(' ')[0]}</p>
-      <h1 className="mt-3 text-4xl font-extrabold tracking-tight">Pesanan Saya</h1>
+      <h1 className="display mt-4 text-[clamp(2.4rem,6vw,4.5rem)]">Pesanan Saya</h1>
       <div className="mt-8">
         {error ? <ErrorState message={error} /> : !orders ? <div className="skeleton h-40" /> : orders.length === 0 ? (
           <EmptyState title="Belum ada pesanan" text="Pesanan yang kamu buat akan muncul di sini."

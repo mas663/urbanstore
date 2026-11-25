@@ -185,7 +185,7 @@ function Footer() {
         </div>
       </div>
       <div className="container-x overflow-hidden" aria-hidden="true">
-        <p className="display select-none whitespace-nowrap text-center text-[12.4vw] leading-[0.8] text-paper/[0.07] xl:text-[9.6rem]">
+        <p className="display select-none whitespace-nowrap text-center text-[9.2vw] leading-[0.8] text-paper/[0.07] xl:text-[8.4rem]">
           Urbanstore
         </p>
       </div>

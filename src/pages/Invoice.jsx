@@ -177,7 +177,7 @@ export default function Invoice() {
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-6">
         <div>
           <p className="eyebrow">Nomor order</p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">#{order.code}</h1>
+          <h1 className="display-tight mt-2 text-3xl sm:text-5xl">#{order.code}</h1>
           <p className="mt-2 text-sm text-mute">{formatDate(order.created_at)}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -288,7 +288,7 @@ export default function Invoice() {
             <ul className="divide-y divide-line border-y border-line">
               {order.items.map((i) => (
                 <li key={i.id} className="flex gap-4 py-4">
-                  <img src={resolveImage(i.image_url)} alt="" className="h-20 w-16 bg-soft object-cover" />
+                  <img src={resolveImage(i.image_url)} alt="" className="h-20 w-16 bg-studio object-cover" />
                   <div className="flex-1 text-sm">
                     <p className="font-medium">{i.product_name}</p>
                     <p className="text-mute">{i.color} · Size {i.size} · {i.qty} × {rupiah(i.price)}</p>

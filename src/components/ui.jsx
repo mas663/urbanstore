@@ -55,12 +55,12 @@ export function ProductCard({ product, index, priority = false }) {
           </div>
         )}
       </div>
-      <div className="mt-3.5 flex items-start justify-between gap-3">
+      <div className="mt-3.5 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <p className="eyebrow !text-[10px]">{product.category.name} · {GENDER_LABEL[product.gender]}</p>
           <h3 className="mt-1.5 text-[15px] font-medium leading-snug">{product.name}</h3>
         </div>
-        <Price price={product.price} compareAt={product.compareAtPrice} className="shrink-0 flex-col !items-end !gap-0 text-sm" />
+        <Price price={product.price} compareAt={product.compareAtPrice} className="shrink-0 flex-wrap !gap-x-2 !gap-y-0 text-sm sm:flex-col sm:!items-end" />
       </div>
     </Link>
   );
@@ -116,9 +116,9 @@ export function StatusBadge({ status, label }) {
   );
 }
 
-export function QtyStepper({ value, onChange, min = 1, max = 99, disabled }) {
+export function QtyStepper({ value, onChange, min = 1, max = 99, disabled, className = 'h-10' }) {
   return (
-    <div className="inline-flex h-10 items-center border border-line">
+    <div className={`inline-flex items-center border border-line ${className}`}>
       <button type="button" className="h-full w-10 text-lg disabled:opacity-30" aria-label="Kurangi jumlah"
         onClick={() => onChange(value - 1)} disabled={disabled || value <= min}>−</button>
       <span className="w-8 text-center text-sm tabular-nums" aria-live="polite">{value}</span>

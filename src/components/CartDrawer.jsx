@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/AppContext.jsx';
 import { rupiah } from '../lib/format.js';
-import { CloseIcon } from './icons.jsx';
+import { ArrowIcon, CloseIcon } from './icons.jsx';
 import { QtyStepper } from './ui.jsx';
 
 export default function CartDrawer() {
@@ -25,16 +25,16 @@ export default function CartDrawer() {
 
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Keranjang belanja">
-      <button className="absolute inset-0 bg-ink/40" onClick={() => setOpen(false)} aria-label="Tutup keranjang" />
-      <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-paper">
-        <div className="flex h-16 items-center justify-between border-b border-line px-5">
-          <p className="font-semibold">Keranjang <span className="text-mute">({cart.count})</span></p>
+      <button className="absolute inset-0 bg-ink/50 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-label="Tutup keranjang" />
+      <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-ink bg-paper">
+        <div className="flex h-20 items-center justify-between border-b border-ink px-5">
+          <p className="flex items-center gap-3"><span className="display text-2xl">Keranjang</span><span className="tag bg-lemon px-2 py-1">{cart.count} item</span></p>
           <button className="-mr-2 p-2" onClick={() => setOpen(false)} aria-label="Tutup"><CloseIcon /></button>
         </div>
 
         {cart.items.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
-            <p className="text-lg font-semibold">Keranjang kamu masih kosong</p>
+            <p className="display text-4xl">Masih<br />kosong.</p>
             <p className="text-sm text-mute">Yuk cari outfit yang bikin kamu pede seharian.</p>
             <Link to="/koleksi" className="btn-primary mt-2" onClick={() => setOpen(false)}>Mulai Belanja</Link>
           </div>
@@ -44,7 +44,7 @@ export default function CartDrawer() {
               {cart.items.map((item) => (
                 <li key={item.id} className="flex gap-4 py-5">
                   <Link to={`/produk/${item.slug}`} onClick={() => setOpen(false)} className="w-20 shrink-0">
-                    <img src={item.imageUrl} alt={item.name} className="aspect-[4/5] w-full bg-soft object-cover" />
+                    <img src={item.imageUrl} alt={item.name} className="aspect-[4/5] w-full bg-studio object-cover" />
                   </Link>
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex justify-between gap-2">
@@ -65,19 +65,20 @@ export default function CartDrawer() {
                 </li>
               ))}
             </ul>
-            <div className="space-y-4 border-t border-line p-5">
+            <div className="space-y-4 border-t border-ink bg-bone p-5">
               <div className="flex items-baseline justify-between">
-                <span className="text-sm text-mute">Subtotal</span>
-                <span className="text-xl font-semibold tabular-nums">{rupiah(cart.subtotal)}</span>
+                <span className="eyebrow">Subtotal</span>
+                <span className="display-tight text-3xl tabular-nums">{rupiah(cart.subtotal)}</span>
               </div>
               <p className="text-xs text-mute">Ongkir dihitung di langkah checkout.</p>
               {cart.hasIssues && (
                 <p className="bg-danger/5 p-3 text-xs text-danger">Ada item yang stoknya berubah. Sesuaikan jumlah atau hapus dulu ya.</p>
               )}
-              <button className="btn-primary w-full" disabled={cart.hasIssues || busy}
+              <button className="btn-primary h-14 w-full text-[15px]" disabled={cart.hasIssues || busy}
                 onClick={() => { setOpen(false); navigate('/checkout'); }}>
-                Checkout Sekarang
+                Checkout Sekarang <ArrowIcon size={18} />
               </button>
+              <button className="link-grow mx-auto block py-0.5 text-sm text-mute hover:text-ink" onClick={() => setOpen(false)}>Lanjut belanja</button>
             </div>
           </>
         )}

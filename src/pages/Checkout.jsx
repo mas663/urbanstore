@@ -114,7 +114,7 @@ export default function Checkout() {
 
   return (
     <div className="container-x py-10 lg:py-14">
-      <h1 className="text-4xl font-extrabold tracking-tight">Checkout</h1>
+      <h1 className="display text-[clamp(2.4rem,6vw,4.5rem)]">Checkout</h1>
 
       <ol className="mt-8 grid grid-cols-3 border-t border-line" aria-label="Langkah checkout">
         {STEPS.map((label, i) => (
@@ -129,7 +129,7 @@ export default function Checkout() {
         <div className="lg:col-span-7">
           {step === 0 && (
             <section className="space-y-5">
-              <h2 className="text-xl font-semibold">Kirim ke mana?</h2>
+              <h2 className="display-tight text-2xl">Kirim ke mana?</h2>
               <Field label="Nama penerima" htmlFor="name" error={errors.name}>{input('name', { autoComplete: 'name' })}</Field>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="Nomor WhatsApp" htmlFor="phone" error={errors.phone} hint="Untuk info pengiriman.">
@@ -163,7 +163,7 @@ export default function Checkout() {
           {step === 1 && (
             <section className="space-y-8">
               <div>
-                <h2 className="text-xl font-semibold">Metode pengiriman</h2>
+                <h2 className="display-tight text-2xl">Metode pengiriman</h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup">
                   {SHIPPING.map((s) => (
                     <label key={s.id} className={`cursor-pointer border p-4 transition-colors ${form.shippingMethod === s.id ? 'border-ink bg-soft' : 'border-line hover:border-ink'}`}>
@@ -181,7 +181,7 @@ export default function Checkout() {
                 </div>
               </div>
               <div>
-                <h2 className="text-xl font-semibold">Metode pembayaran</h2>
+                <h2 className="display-tight text-2xl">Metode pembayaran</h2>
                 <div className="mt-4 border border-ink bg-soft p-4">
                   <p className="font-semibold">Transfer Bank {BANK.name} (Manual)</p>
                   <p className="mt-1 text-sm text-mute">
@@ -195,7 +195,7 @@ export default function Checkout() {
 
           {step === 2 && (
             <section className="space-y-6">
-              <h2 className="text-xl font-semibold">Cek lagi sebelum order</h2>
+              <h2 className="display-tight text-2xl">Cek lagi sebelum order</h2>
               <div className="grid gap-px border border-line bg-line sm:grid-cols-2">
                 <div className="bg-paper p-4 text-sm">
                   <div className="flex justify-between"><p className="eyebrow">Penerima</p>
@@ -235,7 +235,7 @@ export default function Checkout() {
             <ul className="mt-4 divide-y divide-line">
               {cart.items.map((i) => (
                 <li key={i.id} className="flex gap-3 py-3">
-                  <img src={i.imageUrl} alt="" className="h-16 w-13 bg-soft object-cover" />
+                  <img src={i.imageUrl} alt="" className="h-16 w-13 bg-studio object-cover" />
                   <div className="flex-1 text-sm">
                     <p className="font-medium leading-snug">{i.name}</p>
                     <p className="text-xs text-mute">{i.color} · Size {i.size} · {i.qty} × {rupiah(i.price)}</p>
