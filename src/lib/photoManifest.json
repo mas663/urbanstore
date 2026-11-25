@@ -3,6 +3,12 @@
     "boxy-zip-hoodie": {
       "main": "/images/products/boxy-zip-hoodie.webp"
     },
+    "cargo-pants-olive": {
+      "main": "/images/products/cargo-pants-olive.webp"
+    },
+    "cropped-denim-jacket": {
+      "main": "/images/products/cropped-denim-jacket.webp"
+    },
     "cropped-poplin-shirt": {
       "main": "/images/products/cropped-poplin-shirt.webp"
     },
@@ -23,6 +29,12 @@
     },
     "urban-oversized-heavy-tee": {
       "main": "/images/products/urban-oversized-heavy-tee.webp"
+    },
+    "urban-relaxed-chino": {
+      "main": "/images/products/urban-relaxed-chino.webp"
+    },
+    "wide-leg-trousers": {
+      "main": "/images/products/wide-leg-trousers.webp"
     }
   },
   "editorial": {},
@@ -34,6 +46,10 @@
     "/products/poplin-shirt-white.svg": "/images/products/cropped-poplin-shirt.webp",
     "/products/zip-hoodie-black.svg": "/images/products/boxy-zip-hoodie.webp",
     "/products/pullover-hoodie-grey.svg": "/images/products/soft-pullover-hoodie.webp",
-    "/products/work-jacket-olive.svg": "/images/products/minimalist-work-jacket.webp"
+    "/products/work-jacket-olive.svg": "/images/products/minimalist-work-jacket.webp",
+    "/products/denim-jacket-blue.svg": "/images/products/cropped-denim-jacket.webp",
+    "/products/cargo-pants-olive.svg": "/images/products/cargo-pants-olive.webp",
+    "/products/chino-cream.svg": "/images/products/urban-relaxed-chino.webp",
+    "/products/wide-trousers-black.svg": "/images/products/wide-leg-trousers.webp"
   }
 }
