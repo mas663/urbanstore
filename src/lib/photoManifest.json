@@ -3,6 +3,9 @@
     "boxy-zip-hoodie": {
       "main": "/images/products/boxy-zip-hoodie.webp"
     },
+    "canvas-tote-bag": {
+      "main": "/images/products/canvas-tote-bag.webp"
+    },
     "cargo-pants-olive": {
       "main": "/images/products/cargo-pants-olive.webp"
     },
@@ -14,6 +17,9 @@
     },
     "essential-boxy-tee": {
       "main": "/images/products/essential-boxy-tee.webp"
+    },
+    "everyday-cap": {
+      "main": "/images/products/everyday-cap.webp"
     },
     "linen-relaxed-shirt": {
       "main": "/images/products/linen-relaxed-shirt.webp"
@@ -37,7 +43,9 @@
       "main": "/images/products/wide-leg-trousers.webp"
     }
   },
-  "editorial": {},
+  "editorial": {
+    "hero-1": "/images/editorial/hero-1.webp"
+  },
   "legacy": {
     "/products/oversized-tee-black.svg": "/images/products/urban-oversized-heavy-tee.webp",
     "/products/boxy-tee-white.svg": "/images/products/essential-boxy-tee.webp",
@@ -50,6 +58,8 @@
     "/products/denim-jacket-blue.svg": "/images/products/cropped-denim-jacket.webp",
     "/products/cargo-pants-olive.svg": "/images/products/cargo-pants-olive.webp",
     "/products/chino-cream.svg": "/images/products/urban-relaxed-chino.webp",
-    "/products/wide-trousers-black.svg": "/images/products/wide-leg-trousers.webp"
+    "/products/wide-trousers-black.svg": "/images/products/wide-leg-trousers.webp",
+    "/products/cap-black.svg": "/images/products/everyday-cap.webp",
+    "/products/tote-natural.svg": "/images/products/canvas-tote-bag.webp"
   }
 }
