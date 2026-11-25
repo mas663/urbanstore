@@ -19,3 +19,4 @@ export const CopyIcon = (p) => <Svg {...p}><rect x="8" y="8" width="12" height="
 export const RulerIcon = (p) => <Svg {...p}><path d="M3 16L16 3l5 5L8 21l-5-5z" /><path d="M7 12l2 2M10 9l2 2M13 6l2 2" /></Svg>;
 export const SendIcon = (p) => <Svg {...p}><path d="M4 12l16-8-6 16-2-7-8-1z" /></Svg>;
 export const RefreshIcon = (p) => <Svg {...p}><path d="M20 12a8 8 0 1 1-2.3-5.7" /><path d="M20 4v5h-5" /></Svg>;
+export const DownloadIcon = (p) => <Svg {...p}><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></Svg>;

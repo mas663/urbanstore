@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { api, streamApi } from '../../lib/api.js';
 import { run, supabase } from '../../lib/supabase.js';
 import { cleanAiText, rupiah } from '../../lib/format.js';
-import { RefreshIcon, SparkIcon } from '../../components/icons.jsx';
+import { DownloadIcon, RefreshIcon, SparkIcon } from '../../components/icons.jsx';
 import { EmptyState, ErrorState } from '../../components/ui.jsx';
+import { useAuth, useToast } from '../../context/AppContext.jsx';
 import { PageHeader } from './AdminLayout.jsx';
 
 /* AI Analisis Penjualan & Strategi (Sesi 5)
@@ -49,6 +50,24 @@ export default function Analysis() {
   const [state, setState] = useState('idle'); // idle | loading | streaming | done | error
   const [error, setError] = useState('');
   const ctrlRef = useRef(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const { user } = useAuth();
+  const toast = useToast();
+
+  // Revisi: laporan analisis bisa diunduh sebagai PDF rapi untuk atasan
+  async function downloadPdf() {
+    setPdfBusy(true);
+    try {
+      const { downloadSalesReportPdf } = await import('../../lib/salesReportPdf.js');
+      await downloadSalesReportPdf({ metrics, aiText: state === 'done' ? doc : '', aiModel: ai?.model || '', adminName: user?.name || '' });
+      toast(state === 'done' ? 'Laporan PDF terunduh' : 'Laporan PDF terunduh (tanpa analisis AI — generate dulu untuk versi lengkap)');
+    } catch (e) {
+      console.error(e);
+      toast('Gagal membuat PDF. Coba lagi ya.', 'error');
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   useEffect(() => {
     run(supabase.rpc('get_sales_metrics')).then(setMetrics).catch((e) => setLoadError(e.message));
@@ -87,9 +106,14 @@ export default function Analysis() {
     <>
       <PageHeader eyebrow="AI Business Tools" title="Analisis Penjualan"
         action={m.orders.total + m.orders.cancelled > 0 && (
-          <button className="btn-primary" onClick={generate} disabled={busy || !ai?.enabled}>
-            {busy ? 'Menyusun dokumen…' : doc ? <><RefreshIcon size={16} /> Generate ulang</> : <><SparkIcon size={16} /> Generate Analisis AI</>}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-outline" onClick={downloadPdf} disabled={pdfBusy || busy}>
+              <DownloadIcon size={16} /> {pdfBusy ? 'Membuat PDF…' : 'Unduh Laporan PDF'}
+            </button>
+            <button className="btn-primary" onClick={generate} disabled={busy || !ai?.enabled}>
+              {busy ? 'Menyusun dokumen…' : doc ? <><RefreshIcon size={16} /> Generate ulang</> : <><SparkIcon size={16} /> Generate Analisis AI</>}
+            </button>
+          </div>
         )} />
 
       {m.orders.total + m.orders.cancelled === 0 ? (
@@ -136,7 +160,12 @@ export default function Analysis() {
                   <p className="text-xs text-mute">Dibuat AI dari metrik di atas · {ai?.model || 'AI'}</p>
                 </div>
               </div>
-              {state === 'done' && <button className="btn-ghost btn-sm" onClick={() => navigator.clipboard?.writeText(cleanAiText(doc))}>Salin</button>}
+              {state === 'done' && (
+                <div className="flex gap-1">
+                  <button className="btn-ghost btn-sm" onClick={() => navigator.clipboard?.writeText(cleanAiText(doc))}>Salin</button>
+                  <button className="btn-primary btn-sm" onClick={downloadPdf} disabled={pdfBusy}><DownloadIcon size={14} /> PDF</button>
+                </div>
+              )}
             </div>
             <div className="p-5 sm:p-8">
               {!ai?.enabled ? (

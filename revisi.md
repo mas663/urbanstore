@@ -1,0 +1,3 @@
+[] Tanya Asisten harusnya tidak muncul pada register dan login karena juga tidak bisa di gunakan sebelum login
+[] Saya ingin pada analisis AI itu dibuat dengan menghasilkan file pdf yang terstruktur rapi, dan bagus. agar si pengguna atau atasasn lebih mudah untuk melihat laporan.
+[] saya kurang suka dengan design website nya. menurut saya kurang wow gitu. mungkin anda bisa melihat contoh website yang bagus dan baik itu seperti apa, milik mentor saya: https://urbanstore-vcb.vercel.app/ . didalamnya rapih, pengguna mudah untuk membaca, diliat juga enak. terdapat gambar yang juga mengambil dari google (anda juga bisa mengambil dari google). tapi jangan di samakan jadi buat yang versi saya sendiri denga gaya berbeda tetapi jauh lebih manarik dibanding milik mentor saya.
