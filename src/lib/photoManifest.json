@@ -44,7 +44,8 @@
     }
   },
   "editorial": {
-    "hero-1": "/images/editorial/hero-1.webp"
+    "hero-1": "/images/editorial/hero-1.webp",
+    "lookbook": "/images/editorial/lookbook.webp"
   },
   "legacy": {
     "/products/oversized-tee-black.svg": "/images/products/urban-oversized-heavy-tee.webp",
