@@ -184,7 +184,7 @@ function Footer() {
           {[
             ['Belanja', [['/koleksi', 'Semua Koleksi'], ['/koleksi?gender=pria', 'Pria'], ['/koleksi?gender=wanita', 'Wanita'], ['/koleksi?sort=newest', 'Terbaru']]],
             ['Bantuan', [['/#faq', 'FAQ'], ['/akun/pesanan', 'Pesanan Saya'], ['/favorit', 'Favorit'], ['/#size-finder', 'Cari Ukuran']]],
-            ['Untuk Toko', [['/admin', 'Store Admin']]],
+            ['Lainnya', [['/admin', 'Store Admin'], ['/kebijakan-privasi', 'Kebijakan Privasi'], ['/syarat-ketentuan', 'Syarat & Ketentuan']]],
           ].map(([title, links]) => (
             <div key={title}>
               <p className="eyebrow !text-paper/45">{title}</p>
