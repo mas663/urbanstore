@@ -31,7 +31,7 @@
 <body><main>
 <h1>UrbanStore — Product Requirement Document (PRD)</h1>
 <blockquote>
-<p>Versi 2.0 · Status: Siap dieksekusi AI Agent · Studi kasus Vibe Coding Bootcamp Batch 4 (CODEPOLITAN)</p>
+<p>Versi 3.0 · Status: Siap dieksekusi AI Agent · Studi kasus Vibe Coding Bootcamp Batch 4 (CODEPOLITAN)</p>
 <p>Dokumen ini adalah <strong>source of truth</strong>. Setiap prompt development wajib mengacu ke sini. Kalau ada hal yang belum diputuskan, tandai sebagai <em>Open Question</em> — jangan ditebak.</p>
 </blockquote>
 <hr>
@@ -155,9 +155,9 @@
 <li>AI Virtual Stylist &amp; Outfit Matcher penuh (catatan: asisten belanja berbasis katalog masuk v1.2, lihat Changelog)</li>
 <li>Multi-seller Marketplace</li>
 <li>Virtual 3D Fitting Room (AR)</li>
-<li>Integrasi Paylater &amp; Cicilan / KYC</li>
-<li>Payment gateway otomatis (Midtrans/Xendit) &amp; API kurir real-time</li>
-<li>Wishlist, ulasan &amp; rating, loyalty tier, live shopping</li>
+<li>Integrasi Paylater &amp; Cicilan</li>
+<li>API kurir real-time</li>
+<li>Ulasan &amp; rating, loyalty tier, live shopping <em>(wishlist masuk v2.1)</em></li>
 </ul>
 <h2>7. Functional Requirements</h2>
 <h3>FR-01 — Homepage &amp; Banner</h3>
@@ -190,7 +190,7 @@
 <h3>FR-05 — 3-Step Checkout (wajib login)</h3>
 <ol>
 <li><strong>Data pengiriman</strong> — nama penerima, nomor WhatsApp, email, <strong>provinsi → kota/kabupaten → kecamatan</strong> (dropdown bertingkat), alamat lengkap, kode pos, catatan pengiriman.</li>
-<li><strong>Pengiriman &amp; pembayaran</strong> — Regular (Rp15.000) / Express Next Day (Rp30.000); pembayaran transfer bank manual.</li>
+<li><strong>Pengiriman &amp; pembayaran</strong> — Regular (Rp15.000) / Express Next Day (Rp30.000); pembayaran <strong>Bayar instan via Mayar.id</strong> (QRIS, Virtual Account, e-wallet — default) atau transfer bank manual.</li>
 <li><strong>Review</strong> — ringkasan item, ongkir, total → tombol <strong>Checkout</strong>.</li>
 </ol>
 <h3>FR-06 — Pesanan Berhasil, Pembayaran &amp; Invoice</h3>
@@ -199,13 +199,28 @@
 <li>Halaman pesanan berhasil menampilkan nomor order, info rekening &amp; nominal transfer, dan <strong>timer hitung mundur 1 jam</strong>.</li>
 <li><strong>Form upload bukti transfer.</strong> Gambar dikompres di browser sebelum diupload ke storage privat. Setelah diupload, status berubah menjadi <em>Menunggu Verifikasi</em>.</li>
 <li><strong>Invoice</strong> tampil di halaman dengan stempel <strong>BELUM LUNAS</strong> (atau LUNAS / DIBATALKAN / KEDALUWARSA) dan bisa <strong>diunduh sebagai PDF</strong>.</li>
+<li><strong>Bayar instan (Mayar.id):</strong> tombol <em>Bayar Sekarang</em> membuka halaman bayar Mayar. Setelah dibayar, status otomatis menjadi <strong>Lunas</strong> tanpa upload bukti (lihat FR-08). Transfer manual tetap tersedia sebagai cadangan.</li>
 <li>Riwayat status pesanan ditampilkan sebagai timeline. Semua pesanan bisa dibuka lagi dari menu <em>Pesanan Saya</em>.</li>
 </ul>
 <h3>FR-07 — Store Admin</h3>
 <ul>
-<li>Login khusus admin di <code>/admin/login</code>. Role disimpan di tabel <code>profiles</code> dan tidak bisa diubah dari aplikasi.</li>
+<li>Login khusus admin di <code>/admin/login</code> (email/password atau Google). Role disimpan di tabel <code>profiles</code> dan tidak bisa diubah dari aplikasi.</li>
 <li>Kelola produk &amp; varian (stok per warna × ukuran), upload foto produk, arsipkan/aktifkan produk.</li>
 <li>Kelola pesanan: lihat bukti transfer, <strong>Konfirmasi Lunas</strong>, <strong>Tolak Bukti</strong> (customer mendapat 1 jam lagi untuk upload ulang), tandai Dikirim/Selesai, Batalkan (stok kembali).</li>
+<li>Pesanan yang dibayar via Mayar tampil dengan label <strong>Auto · Mayar</strong> beserta ID invoice/transaksi dan waktu verifikasi; admin tidak perlu konfirmasi manual. Pembayaran yang masuk setelah pesanan ditutup dan stoknya habis ditandai <strong>perlu refund</strong>.</li>
+</ul>
+<h3>FR-08 — Payment Gateway Mayar.id</h3>
+<ul>
+<li>Server membuat invoice lewat Mayar Headless API v2 (<code>POST /invoices/create</code>): satu baris per item + ongkir, total wajib sama dengan total pesanan, link bayar kedaluwarsa bersamaan dengan batas bayar 1 jam. Link yang masih berlaku dipakai ulang (tidak membuat invoice ganda).</li>
+<li>Mayar mengirim webhook <code>payment.received</code> ke <code>/api/webhook/mayar?token=&lt;rahasia&gt;</code>. Karena webhook Mayar tidak bertanda tangan, server <strong>selalu memverifikasi ulang</strong> status &amp; nominal ke <code>GET /invoices/{id}</code> sebelum menandai lunas.</li>
+<li>Penandaan lunas dilakukan fungsi database <code>mayar_mark_paid</code> (hanya <code>service_role</code>): idempotent, mengunci baris pesanan, menolak nominal yang berbeda, dan memesan ulang stok bila pembayaran datang setelah pesanan kedaluwarsa.</li>
+<li>Cadangan tanpa webhook: saat customer kembali ke halaman pesanan, browser meminta server mengecek status ke Mayar (<code>/api/payments/mayar/sync</code>).</li>
+<li>API key Mayar hanya di server (<code>MAYAR_API_KEY</code>, <code>MAYAR_ENV</code> sandbox/production). Jika key kosong, opsi Bayar instan disembunyikan.</li>
+</ul>
+<h3>FR-09 — Login dengan Google</h3>
+<ul>
+<li>Tombol <em>Lanjutkan dengan Google</em> di <code>/login</code>, <code>/daftar</code>, <code>/admin/login</code> (Supabase Auth, OAuth PKCE). Akun Google baru otomatis berperan <strong>customer</strong>.</li>
+<li>Halaman <code>/auth/callback</code> memeriksa role: login lewat <code>/admin/login</code> dengan akun non-admin langsung di-logout dengan pesan jelas. Data admin tetap dilindungi RLS.</li>
 </ul>
 <h2>8. User Flow</h2>
 <p><strong>Discover → Explore → Evaluate → Purchase → Complete</strong></p>
@@ -228,9 +243,10 @@
 <li><strong>Validitas pesanan:</strong> order hanya berhasil jika field alamat &amp; nomor HP valid.</li>
 <li><strong>Snapshot harga:</strong> harga &amp; nama produk disimpan saat dibeli, sehingga invoice tidak berubah jika admin mengubah harga.</li>
 <li><strong>Stok per varian:</strong> stok varian berkurang saat order dibuat dan dikembalikan jika order dibatalkan atau kedaluwarsa.</li>
-<li><strong>Batas waktu bayar:</strong> 1 jam setelah checkout. Jika bukti transfer belum diupload sampai batas waktu, pesanan otomatis berstatus <strong>Kedaluwarsa</strong> dan stok dikembalikan.</li>
+<li><strong>Batas waktu bayar:</strong> 1 jam setelah checkout. Jika belum dibayar via Mayar dan bukti transfer belum diupload sampai batas waktu, pesanan otomatis berstatus <strong>Kedaluwarsa</strong> dan stok dikembalikan.</li>
 <li><strong>Bukti ditolak:</strong> status kembali ke Menunggu Pembayaran dengan batas waktu baru 1 jam.</li>
-<li><strong>Status pesanan:</strong> Menunggu Pembayaran → Menunggu Verifikasi → Lunas (diproses) → Dikirim → Selesai; atau Dibatalkan / Kedaluwarsa.</li>
+<li><strong>Pembayaran Mayar:</strong> status Lunas hanya diberikan setelah server memverifikasi status <code>paid</code> dan nominal yang sama persis langsung ke API Mayar.</li>
+<li><strong>Status pesanan:</strong> Menunggu Pembayaran → (Menunggu Verifikasi →) Lunas (diproses) → Dikirim → Selesai; atau Dibatalkan / Kedaluwarsa.</li>
 <li><strong>Akun admin</strong> tidak bisa checkout; checkout hanya untuk role customer.</li>
 </ul>
 <h2>10. Acceptance Criteria (Gherkin)</h2>
@@ -288,6 +304,23 @@ Scenario: Admin konfirmasi pembayaran
   Given order berstatus &quot;Menunggu Verifikasi&quot;
   When admin melihat bukti transfer dan menekan &quot;Konfirmasi Lunas&quot;
   Then status berubah menjadi &quot;Lunas&quot; dan terlihat di halaman pesanan customer
+
+Scenario: Bayar instan via Mayar
+  Given order berstatus &quot;Menunggu Pembayaran&quot; dan Mayar aktif
+  When customer menekan &quot;Bayar Sekarang&quot; lalu menyelesaikan pembayaran di halaman Mayar
+  Then server memverifikasi invoice ke API Mayar
+  And status berubah menjadi &quot;Lunas&quot; tanpa konfirmasi admin
+  And admin melihat label &quot;Auto · Mayar&quot; pada pesanan tersebut
+
+Scenario: Webhook palsu
+  Given seseorang mengirim webhook &quot;payment.received&quot; untuk invoice yang belum dibayar
+  When server memverifikasi invoice ke API Mayar dan statusnya bukan &quot;paid&quot;
+  Then pesanan tetap &quot;Menunggu Pembayaran&quot;
+
+Scenario: Login Google ke panel admin dengan akun biasa
+  Given pengguna memakai akun Google yang berperan customer
+  When pengguna login melalui &quot;/admin/login&quot;
+  Then sesi langsung diakhiri dan muncul pesan &quot;bukan akun Store Admin&quot;
 </code></pre>
 <h2>11. Non-Functional Requirements</h2>
 <ul>
@@ -299,11 +332,11 @@ Scenario: Admin konfirmasi pembayaran
 </ul>
 <h2>12. Technical Constraints</h2>
 <ul>
-<li><strong>Stack:</strong> Vite + React + Tailwind CSS (frontend) yang terhubung langsung ke <strong>Supabase</strong> (Postgres, Auth email/password, Storage) dengan Row Level Security; Express kecil sebagai Vercel Function khusus endpoint AI.</li>
+<li><strong>Stack:</strong> Vite + React + Tailwind CSS (frontend) yang terhubung langsung ke <strong>Supabase</strong> (Postgres, Auth email/password + Google OAuth, Storage) dengan Row Level Security; Express kecil sebagai Vercel Function untuk endpoint AI dan pembayaran Mayar (create invoice, sync, webhook).</li>
 <li><strong>Deploy:</strong> Vercel (static frontend + Function <code>/api</code>).</li>
 <li><strong>Design system:</strong> Swiss × Japanese minimalism — font Inter, strong grid, generous whitespace, tanpa gradient/shadow berlebihan, foto produk sebagai fokus. Warna: hitam <code>#0A0A0A</code>, putih <code>#FFFFFF</code>, aksen lemon <code>#D9F24A</code>.</li>
 <li><strong>Copywriting:</strong> Bahasa Indonesia gaya Gen Z yang natural.</li>
-<li><strong>No payment assumed:</strong> jangan mengasumsikan payment gateway live tanpa API key; MVP memakai transfer bank manual.</li>
+<li><strong>No payment assumed:</strong> jangan mengasumsikan payment gateway live tanpa API key. Mayar aktif hanya bila <code>MAYAR_API_KEY</code> terisi; tanpa itu, transfer bank manual tetap berfungsi.</li>
 <li><strong>Secrets:</strong> semua kredensial di environment variables (<code>.env</code>), tidak pernah di frontend.</li>
 </ul>
 <hr>
@@ -343,9 +376,22 @@ Scenario: Admin konfirmasi pembayaran
 <li><strong>Invoice PDF</strong> dengan stempel status.</li>
 <li><strong>Deploy Vercel</strong>; endpoint AI menjadi Vercel Function. Kuota chat dihitung di database dengan fungsi khusus <code>service_role</code>.</li>
 </ul>
+<h3>v2.1 — Engagement &amp; Redesign</h3>
+<ul>
+<li>Redesign &quot;editorial streetwear&quot; dengan foto produk nyata (pipeline <code>npm run photos</code>).</li>
+<li><strong>Wishlist</strong> (<code>/favorit</code>, tabel <code>wishlist_items</code> + RLS), badge <strong>&quot;Terjual&quot;</strong> dari agregat <code>get_product_sales()</code>, <em>Terakhir kamu lihat</em> (localStorage), Vercel Analytics.</li>
+<li>Laporan <strong>PDF Analisis Penjualan</strong> untuk admin.</li>
+<li><strong>Rantai provider AI:</strong> provider utama (<code>AI_PROVIDER</code>) + cadangan (<code>AI_FALLBACK_PROVIDER</code>), masing-masing dengan model cadangan; circuit breaker 3 menit untuk model yang gagal. Situs live memakai Gemini langsung; 9Router opsional untuk lokal.</li>
+</ul>
+<h3>v3.0 — Sesi 6: Production Ready</h3>
+<ul>
+<li><strong>FR-08 Mayar.id</strong> + webhook terverifikasi (migrasi <code>003_mayar.sql</code>).</li>
+<li><strong>FR-09 Login Google</strong> untuk customer &amp; admin.</li>
+<li>Halaman <code>/kebijakan-privasi</code> dan <code>/syarat-ketentuan</code> (syarat branding Google OAuth).</li>
+</ul>
 <h3>Open Questions</h3>
 <ul>
-<li>Integrasi QRIS / payment gateway otomatis (ditunda).</li>
+<li>Aktivasi Mayar produksi menunggu verifikasi KYC akun Mayar (sandbox <code>web.mayar.io</code> tidak dapat diakses saat pengembangan).</li>
 <li>Ongkir dinamis berdasarkan kota/kecamatan (saat ini flat).</li>
 <li>Data wilayah memakai pembagian sebelum pemekaran Papua 2022 (34 provinsi).</li>
 <li>Halaman lanjutan dari audit routing (lihat <code>docs/ROUTING_AUDIT.md</code>): <code>/keranjang</code>, <code>/admin/pesanan/:code</code>, lupa password, profil.</li>

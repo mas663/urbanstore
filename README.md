@@ -76,6 +76,8 @@ npm run dev        # web http://localhost:5173 + server AI :3001
 
 ## Payment Gateway Mayar.id (Sesi 6)
 
+Laporan lengkap: [`docs/LAPORAN_MAYAR.md`](docs/LAPORAN_MAYAR.md).
+
 Alur: **Checkout → server membuat invoice Mayar → customer bayar (QRIS / VA / e-wallet) → webhook → server cek ulang status ke API Mayar → pesanan otomatis Lunas.** Transfer manual tetap ada sebagai cadangan.
 
 1. Jalankan `supabase/migrations/003_mayar.sql` di SQL Editor Supabase.

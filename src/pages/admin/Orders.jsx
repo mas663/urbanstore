@@ -36,13 +36,50 @@ const ACTION = {
 
 const SELECT = 'id, code, customer_name, phone, email, province, city, district, address, postal_code, notes, shipping_method,' +
   ' shipping_cost, subtotal, total, status, payment_deadline, created_at,' +
-  ' items:order_items(id, product_name, color, size, qty, price), payment:payments(status, proof_path, proof_uploaded_at, verified_at),' +
+  ' items:order_items(id, product_name, color, size, qty, price), payment:payments(status, method, paid_via, proof_path, proof_uploaded_at, verified_at, mayar_invoice_id, mayar_transaction_id, mayar_link),' +
   ' history:order_status_history(status, note, created_at)';
 
 async function openProof(path, toast) {
   const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(path, 300);
   if (error || !data?.signedUrl) return toast('Gagal membuka bukti transfer.', 'error');
   window.open(data.signedUrl, '_blank', 'noopener');
+}
+
+/* Embed 1-ke-1 dari PostgREST bisa berupa objek atau array → samakan jadi objek */
+const pay = (o) => (Array.isArray(o.payment) ? o.payment[0] : o.payment) || null;
+
+/** Pembayaran Mayar = sudah diverifikasi otomatis oleh server (cek ulang ke API Mayar), admin tidak perlu konfirmasi. */
+const paidByMayar = (o) => pay(o)?.paid_via === 'mayar' && pay(o)?.status === 'paid';
+/** Mayar sudah menerima uang, tapi pesanan sudah ditutup (kedaluwarsa/dibatalkan) dan stok tidak cukup → perlu refund manual. */
+const needsReview = (o) => paidByMayar(o) && ['kedaluwarsa', 'dibatalkan'].includes(o.status);
+
+function PaymentInfo({ o, toast }) {
+  const p = pay(o);
+  if (paidByMayar(o)) {
+    return (
+      <div className={`p-3 ${needsReview(o) ? 'bg-danger/10' : 'bg-lemon'}`}>
+        <p className="font-semibold">{needsReview(o) ? '⚠ Dibayar via Mayar — perlu dicek' : '✓ Dibayar otomatis via Mayar'}</p>
+        <p className="mt-1 text-xs">Terverifikasi server {formatDate(p.verified_at)}</p>
+        {needsReview(o) && <p className="mt-1 text-xs">Pesanan sudah ditutup & stok tidak cukup. Lakukan refund dari dashboard Mayar.</p>}
+        <p className="mt-2 break-all font-mono text-[11px] text-ink/70">Invoice: {p.mayar_invoice_id}</p>
+        {p.mayar_transaction_id && <p className="break-all font-mono text-[11px] text-ink/70">Transaksi: {p.mayar_transaction_id}</p>}
+      </div>
+    );
+  }
+  return (
+    <>
+      {p?.method === 'mayar' && o.status === 'menunggu_pembayaran' && (
+        <p className="mb-2 bg-soft p-2 text-xs">Link bayar Mayar sudah dibuat — status lunas akan masuk otomatis setelah customer membayar.</p>
+      )}
+      {p?.proof_path ? (
+        <>
+          <p>Bukti diupload {formatDate(p.proof_uploaded_at)}</p>
+          <button className="btn-outline btn-sm mt-2" onClick={() => openProof(p.proof_path, toast)}>Lihat bukti transfer ↗</button>
+        </>
+      ) : <p className="text-mute">{p?.method === 'mayar' ? 'Belum dibayar.' : 'Belum ada bukti transfer.'}</p>}
+      {p?.verified_at && <p className="mt-2 text-mute">Diverifikasi admin {formatDate(p.verified_at)}</p>}
+    </>
+  );
 }
 
 function OrderDetail({ o, toast }) {
@@ -72,18 +109,16 @@ function OrderDetail({ o, toast }) {
       </div>
       <div>
         <p className="eyebrow mb-2">Pembayaran</p>
-        {o.payment?.proof_path ? (
-          <>
-            <p>Bukti diupload {formatDate(o.payment.proof_uploaded_at)}</p>
-            <button className="btn-outline btn-sm mt-2" onClick={() => openProof(o.payment.proof_path, toast)}>Lihat bukti transfer ↗</button>
-          </>
-        ) : <p className="text-mute">Belum ada bukti transfer.</p>}
+        <PaymentInfo o={o} toast={toast} />
         {o.status === 'menunggu_pembayaran' && <p className="mt-2 text-mute">Batas bayar: {formatDate(o.payment_deadline)}</p>}
-        {o.payment?.verified_at && <p className="mt-2 text-mute">Diverifikasi {formatDate(o.payment.verified_at)}</p>}
         <p className="eyebrow mb-2 mt-4">Riwayat</p>
         <ol className="space-y-1 border-l border-line pl-3">
           {history.map((h, i) => (
-            <li key={i}><span className="font-medium">{ORDER_STATUS[h.status]}</span> <span className="text-xs text-mute">· {formatDate(h.created_at)}</span></li>
+            <li key={i}>
+              <span className="font-medium">{ORDER_STATUS[h.status]}</span> <span className="text-xs text-mute">· {formatDate(h.created_at)}</span>
+              {/* Catatan sistem, mis. "Pembayaran diterima otomatis via Mayar" atau peringatan nominal tidak cocok */}
+              {h.note && <span className="block text-xs text-mute">{h.note}</span>}
+            </li>
           ))}
         </ol>
       </div>
@@ -164,6 +199,11 @@ export default function Orders() {
                     <span className="font-mono text-sm font-semibold">#{o.code}</span>
                     <StatusBadge status={o.status} label={ORDER_STATUS[o.status]} />
                     {o.payment?.proof_path && o.status === 'menunggu_verifikasi' && <span className="text-xs font-semibold">· bukti terlampir</span>}
+                    {paidByMayar(o) && (
+                      <span className={`px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${needsReview(o) ? 'bg-danger text-paper' : 'bg-lemon'}`}>
+                        {needsReview(o) ? 'Mayar · cek refund' : 'Auto · Mayar'}
+                      </span>
+                    )}
                     <span className="text-xs text-mute">{formatDate(o.created_at)}</span>
                   </div>
                   <p className="mt-2 font-medium">{o.customer_name} <span className="font-normal text-mute">({o.phone}) · {o.city}</span></p>
