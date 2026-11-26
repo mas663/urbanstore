@@ -38,7 +38,9 @@ async function loadProfile(authUser) {
   return {
     id: authUser.id,
     email: authUser.email,
-    name: data?.full_name || authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+    // Akun Google mengirim nama di metadata "full_name" / "name"
+    name: data?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email.split('@')[0],
+    avatar: authUser.user_metadata?.avatar_url || '',
     role: data?.role || 'customer',
     phone: data?.phone || '',
   };
@@ -84,6 +86,22 @@ export function AuthProvider({ children }) {
       }
       setUser(profile);
       return profile;
+    },
+    /**
+     * Login dengan Google (OAuth lewat Supabase).
+     * Browser dibawa ke halaman Google → kembali ke /auth/callback → halaman itu yang
+     * memeriksa role (khusus admin) lalu meneruskan ke tujuan `next`.
+     */
+    async loginWithGoogle({ next = '/', admin = false } = {}) {
+      const back = new URL('/auth/callback', window.location.origin);
+      back.searchParams.set('next', next);
+      if (admin) back.searchParams.set('admin', '1');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: back.toString(), queryParams: { prompt: 'select_account' } }, // selalu tampilkan pilihan akun
+      });
+      if (error) throw new Error(friendlyError(error));
+      // Tidak ada return: halaman langsung pindah ke Google
     },
     async register({ name, email, password }) {
       const { data, error } = await supabase.auth.signUp({

@@ -64,7 +64,7 @@ function Header() {
 
   const isActive = (to) => location.pathname + location.search === to;
   // Di halaman login/daftar, pertahankan tujuan redirect yang sudah ada (hindari next bersarang)
-  const onAuthPage = ['/login', '/daftar'].includes(location.pathname);
+  const onAuthPage = ['/login', '/daftar', '/auth/callback'].includes(location.pathname);
   const loginHref = onAuthPage
     ? `/login${location.search}`
     : `/login?next=${encodeURIComponent(location.pathname + location.search)}`;

@@ -87,6 +87,17 @@ Alur: **Checkout → server membuat invoice Mayar → customer bayar (QRIS / VA 
 
 Keamanan: API key hanya di server. Mayar belum menyediakan signature webhook, jadi webhook hanya dipakai sebagai *pemicu* — status "paid" & nominal selalu diverifikasi ulang lewat `GET /invoices/{id}` sebelum pesanan ditandai lunas (fungsi `mayar_mark_paid` hanya bisa dipanggil server). Saat development di localhost (webhook tidak bisa menjangkau komputer kita), halaman pesanan mengecek status otomatis ketika customer kembali dari halaman Mayar.
 
+## Login dengan Google (Sesi 6)
+
+Tombol **Lanjutkan dengan Google** ada di `/login`, `/daftar`, dan `/admin/login`. Alur: Google → Supabase → `/auth/callback` (cek role) → tujuan.
+
+1. **Google Cloud Console** → APIs & Services → OAuth consent screen (External) → Credentials → *Create OAuth client ID* (Web application).
+   *Authorized redirect URI*: `https://<project-ref>.supabase.co/auth/v1/callback`
+2. **Supabase** → Authentication → Sign In / Providers → **Google** → Enable, tempel *Client ID* & *Client Secret* → Save.
+3. **Supabase** → Authentication → URL Configuration → Redirect URLs berisi `http://localhost:5173/**` dan `https://<domain>/**`.
+
+Role tetap dari tabel `profiles`: akun Google baru otomatis jadi **customer**. Admin yang login Google dengan email yang sama dengan akun adminnya tetap admin (Supabase menautkan identitas berdasarkan email terverifikasi). Akun non-admin yang mencoba masuk lewat `/admin/login` langsung di-logout, dan data admin tetap dijaga RLS di database.
+
 ## Fitur
 
 **Customer**

@@ -7,7 +7,7 @@ import ProductDetail from './pages/ProductDetail.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Invoice from './pages/Invoice.jsx';
 import Wishlist from './pages/Wishlist.jsx';
-import { Login, MyOrders, NotFound, Register } from './pages/AccountPages.jsx';
+import { AuthCallback, Login, MyOrders, NotFound, Register } from './pages/AccountPages.jsx';
 // Halaman admin dimuat terpisah (lazy) supaya bundle storefront tetap ringan untuk customer
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'));
 const Dashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
@@ -31,6 +31,7 @@ export default function App() {
         <Route path="pesanan/:code" element={<Invoice />} />
         <Route path="login" element={<Login />} />
         <Route path="daftar" element={<Register />} />
+        <Route path="auth/callback" element={<AuthCallback />} />
         <Route path="akun/pesanan" element={<MyOrders />} />
         <Route path="favorit" element={<Wishlist />} />
         <Route path="*" element={<NotFound />} />

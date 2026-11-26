@@ -7,7 +7,8 @@ const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const supabaseConfigured = Boolean(url && key);
 
 export const supabase = createClient(url || 'http://localhost:54321', key || 'missing-key', {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  // flowType 'pkce': login Google kembali membawa ?code= sekali pakai (bukan token di URL) → lebih aman
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
 });
 
 /** Ubah error Supabase/Postgres jadi pesan yang ramah. */
@@ -19,6 +20,7 @@ export function friendlyError(error) {
   if (/Email not confirmed/i.test(msg)) return 'Email kamu belum dikonfirmasi. Cek inbox (atau folder spam) ya.';
   if (/User already registered/i.test(msg)) return 'Email ini sudah terdaftar. Coba login aja.';
   if (/Password should be at least/i.test(msg)) return 'Password minimal 6 karakter.';
+  if (/provider is not enabled|Unsupported provider/i.test(msg)) return 'Login Google belum diaktifkan di Supabase (Authentication → Providers → Google).';
   if (/rate limit/i.test(msg)) return 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.';
   if (/JWT expired|invalid JWT/i.test(msg)) return 'Sesi login kamu habis. Login lagi ya.';
   if (/permission denied|row-level security/i.test(msg)) return 'Akses ditolak untuk akun ini.';

@@ -38,6 +38,90 @@ function AuthShell({ eyebrow, title, children, footer }) {
   );
 }
 
+/* Logo "G" resmi Google (warna asli — sesuai pedoman tombol Sign in with Google) */
+const GoogleLogo = () => (
+  <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
+    <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+    <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+    <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+    <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+  </svg>
+);
+
+/** Tombol "Lanjutkan dengan Google" + garis pemisah "atau". */
+function GoogleSignIn({ next, admin = false, label = 'Lanjutkan dengan Google' }) {
+  const { loginWithGoogle } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function go() {
+    setError('');
+    setBusy(true);
+    try {
+      await loginWithGoogle({ next, admin }); // berhasil → browser pindah ke Google
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+  return (
+    <div>
+      <button type="button" onClick={go} disabled={busy}
+        className="flex h-12 w-full items-center justify-center gap-3 border border-ink bg-paper text-sm font-semibold transition-colors hover:bg-soft disabled:opacity-60">
+        <GoogleLogo />{busy ? 'Menghubungkan ke Google…' : label}
+      </button>
+      {error && <p className="mt-2 text-sm text-danger" role="alert">{error}</p>}
+      <div className="my-6 flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.12em] text-mute">
+        <span className="h-px flex-1 bg-line" />atau pakai email<span className="h-px flex-1 bg-line" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * /auth/callback — tempat Google "mengembalikan" user setelah memilih akun.
+ * supabase-js otomatis menukar ?code= menjadi sesi login; di sini kita tinggal
+ * menunggu sesi siap, memeriksa role (untuk login admin), lalu meneruskan ke tujuan.
+ */
+export function AuthCallback() {
+  const { user, ready, logout } = useAuth();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const admin = params.get('admin') === '1';
+  const next = safeNext(params.get('next'), admin ? '/admin' : '/');
+  // Google/Supabase mengirim ?error_description= kalau user menekan "Batal" atau ada salah konfigurasi
+  const oauthError = params.get('error_description') || params.get('error');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!ready || oauthError || error) return;
+    if (!user) {
+      // Sesi kadang baru masuk sesaat setelah halaman siap → beri jeda sebelum menyatakan gagal
+      const t = setTimeout(() => setError('Login Google tidak berhasil. Coba lagi ya.'), 4000);
+      return () => clearTimeout(t);
+    }
+    if (admin && user.role !== 'admin') {
+      // Proteksi /admin: akun Google biasa tidak boleh masuk panel admin
+      logout().then(() => setError(`Akun ${user.email} bukan akun Store Admin.`));
+      return;
+    }
+    navigate(user.role === 'admin' && !admin && next === '/' ? '/admin' : next, { replace: true });
+  }, [ready, user, admin, next, oauthError, error, logout, navigate]);
+
+  const message = error || (oauthError && (/denied|cancel/i.test(oauthError) ? 'Login Google dibatalkan.' : oauthError));
+  return (
+    <AuthShell eyebrow={admin ? 'Store Admin' : 'Akun UrbanStore'} title={message ? 'Gagal masuk' : 'Sebentar…'}>
+      {message ? (
+        <>
+          <p className="text-[15px] leading-relaxed text-danger" role="alert">{message}</p>
+          <Link to={`${admin ? '/admin/login' : '/login'}?next=${encodeURIComponent(next)}`} className="btn-primary mt-8 w-full">Kembali ke halaman login</Link>
+        </>
+      ) : (
+        <p className="text-[15px] text-mute" aria-live="polite">Menyelesaikan login dengan Google…</p>
+      )}
+    </AuthShell>
+  );
+}
+
 export function Login({ admin = false }) {
   const { login, user, ready } = useAuth();
   const [params] = useSearchParams();
@@ -74,6 +158,7 @@ export function Login({ admin = false }) {
         <>Belum punya akun? <Link to={`/daftar?next=${encodeURIComponent(next)}`} className="font-semibold text-ink underline">Daftar gratis</Link></>
       )}
     >
+      <GoogleSignIn next={next} admin={admin} label={admin ? 'Masuk Admin dengan Google' : 'Lanjutkan dengan Google'} />
       <form onSubmit={submit} className="space-y-5" noValidate>
         <Field label="Email" htmlFor="email">
           <input id="email" type="email" className="input" autoComplete="email" value={form.email}
@@ -147,6 +232,7 @@ export function Register() {
   return (
     <AuthShell eyebrow="Akun UrbanStore" title="Daftar"
       footer={<>Udah punya akun? <Link to={`/login?next=${encodeURIComponent(next)}`} className="font-semibold text-ink underline">Masuk</Link></>}>
+      <GoogleSignIn next={next} label="Daftar dengan Google" />
       <form onSubmit={submit} className="space-y-5" noValidate>
         <Field label="Nama" htmlFor="name" error={errors.name}>
           <input id="name" className={`input ${errors.name ? 'input-error' : ''}`} autoComplete="name" value={form.name} onChange={set('name')} />
